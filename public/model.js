@@ -1,3 +1,5 @@
+import {calibrationDefaults,validateCalibration} from './calibration.js';
+import {partDefaults,validateParts} from './parts.js';
 import {defaults as arpDefaults, sources as arpSources, destinations as arpInputs, presets as arpPresets} from './arp/model.js';
 import {sequenceDefaults,validateSequence} from './sequencer.js';
 import {performanceDefaults,validatePerformance} from './performance-model.js';
@@ -18,9 +20,11 @@ function c(id,label,value,min=0,max=1,unit='',log=false){controls[id]={id,label,
 const group=(title,...ids)=>({title,ids});
 export const panels = {
  fx:[
+  group('Frequency shifter',c('fx.shiftHz','Shift',0,-2000,2000,'Hz'),c('fx.shiftMix','Shift mix',1)),
+  group('Six-stage phaser',c('fx.phaseRate','Rate',.2,.01,12,'Hz',true),c('fx.phaseDepth','Depth',.7),c('fx.phaseFeedback','Feedback',.35,-.9,.9),c('fx.phaseMix','Phase mix',.7)),
   group('Fixed filter bank',c('fx.lowBand','Low <88',.6,0,2,'×'),...bandFrequencies.map((hz,i)=>c('fx.band'+i,hz>=1000?(hz/1000)+' kHz':hz+' Hz',.6,0,2,'×')),c('fx.highBand','High >8k',.6,0,2,'×')),
   group('Multimode filter',c('fx.cutoff','Cutoff',1200,20,16000,'Hz',true),c('fx.q','Resonance Q',.7071,.5,8,'×')),
-  group('Twelve-band vocoder',c('fx.sensitivity','Sensitivity',6,.2,30,'×',true),c('fx.release','Release',.08,.01,1,'s',true),c('fx.formant','Formant shift',0,-12,12,'st'),c('fx.monitor','Monitor',0,0,4,'processor')),
+  group('Twelve-band vocoder',c('fx.sensitivity','Sensitivity',6,.2,30,'×',true),c('fx.release','Release',.08,.01,1,'s',true),c('fx.formant','Formant shift',0,-12,12,'st'),c('fx.monitor','Monitor',0,0,6,'processor')),
  ],
  tools:[
   group('DC mixer / attenuverters',c('tools.mix1','Input 1',1,-2,2,'×'),c('tools.mix2','Input 2',1,-2,2,'×'),c('tools.mix3','Input 3',1,-2,2,'×'),c('tools.offset','Offset',0,-5,5,'V')),
@@ -59,7 +63,7 @@ for(const [key,value] of Object.entries(arpDefaults)){
  c('arp.'+key,key.replace(/([A-Z])/g,' $1').replace(/^v([123])/,'VCO $1 '),value,...limits);
 }
 panels.arp=[group('VCO 1 / 2 / 3',...['v1coarse','v1level','v2coarse','v2level','v3coarse','v3level','v2pwm'].map(k=>'arp.'+k)),group('VCF / amplifier',...['cutoff','resonance','filterEnv','ringLevel','micLevel','vcaInitial','reverb'].map(k=>'arp.'+k)),group('ADSR / preamp',...['attack','decay','sustain','release','preamp','efGain'].map(k=>'arp.'+k))];
-for(const family of ['moog','buchla','arp','ems','euro','fx']){c(family+'.level','Level',family==='moog'?.65:0);c(family+'.pan','Pan',0,-1,1);}
+for(const family of ['moog','buchla','arp','ems','euro','fx']){c(family+'.level','Level',family==='moog'?.65:0);c(family+'.pan','Pan',0,-1,1);c(family+'.rear','Rear',0);}
 c('master','Master',.6);c('tempo','Tempo',108,35,220,'BPM');c('swing','Swing',0,0,.45);c('expression','Expression',0);c('bend','Pitch bend',0,-2,2,'st');c('octave','Octave',0,-3,3,'st');c('joyX','X',0,-1,1);c('joyY','Y',0,-1,1);c('mains','Mains',60,50,60,'Hz');
 export const defaults=Object.fromEntries(Object.values(controls).map(p=>[p.id,p.value]));
 export const ports={};
@@ -93,8 +97,9 @@ for(const [id,name,kind]of [['osc1','Oscillator 1','audio'],['osc2','Oscillator 
 out('euro.voice','Macro out');out('euro.resonated','Resonator out');out('euro.grains','Grains out');input('euro.gate','Trigger','gate','bridge.gate');input('euro.timbreIn','Timbre CV','cv');input('euro.audio','Resonator in','audio','euro.voice');input('euro.grainIn','Grain input','audio','euro.resonated');
 input('fx.audio','Filter audio','audio','moog.out');input('fx.cutCV','Cutoff CV','cv');input('fx.modulator','Vocoder modulator','audio','bridge.mic');input('fx.carrier','Vocoder carrier','audio','moog.oscA');input('fx.formantCV','Formant CV','cv');
 for(const [id,label]of [['bank','Filter bank'],['low','Low-pass'],['band','Band-pass'],['high','High-pass'],['vocoder','Vocoder'],['out','Monitor out']])out('fx.'+id,label);
+input('fx.shiftIn','Shifter audio','audio','moog.out');input('fx.shiftCV','Shift CV','cv');out('fx.shifted','Frequency shifted');input('fx.phaseIn','Phaser audio','audio','fx.shifted');out('fx.phased','Phaser out');
 export const initialMatrix={'0:6':1,'1:6':.5,'4:8':1,'5:9':1,'11:10':1,'10:0':1,'10:2':1};
-export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,fx:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false,performance:performanceDefaults()};}
+export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,fx:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false,performance:performanceDefaults(),sharedPerformance:performanceDefaults(),parts:partDefaults(),partFocus:'',calibration:calibrationDefaults()};}
 export function validatePatch(raw){
  if(!raw||raw.version!==1||!raw.params||typeof raw.params!=='object')throw new Error('Choose a TONTO Studio patch file.');
  const p=freshPatch();
@@ -104,7 +109,7 @@ export function validatePatch(raw){
  if(raw.matrix&&typeof raw.matrix==='object'){p.matrix={};for(const [k,v]of Object.entries(raw.matrix)){const [r,c]=k.split(':').map(Number);if(Number.isInteger(r)&&r>=0&&r<16&&Number.isInteger(c)&&c>=0&&c<16&&[-1,.5,1].includes(v))p.matrix[k]=v;}}
  for(const f of Object.keys(p.grounds))if(typeof raw.grounds?.[f]==='boolean')p.grounds[f]=raw.grounds[f];
  if(Array.isArray(raw.steps)&&raw.steps.length===8&&raw.steps.every(Number.isFinite))p.steps=raw.steps.map(v=>Math.round(Math.max(-24,Math.min(24,v))));
- p.sequence=validateSequence(raw.sequence||{});p.sequencer=raw.sequencer===true;p.performance=validatePerformance(raw.performance,controls);return p;
+ p.sequence=validateSequence(raw.sequence||{});p.sequencer=raw.sequencer===true;p.performance=validatePerformance(raw.performance,controls);p.parts=validateParts(raw.parts,controls);p.partFocus=Object.hasOwn(p.parts,raw.partFocus)?raw.partFocus:'';p.sharedPerformance=validatePerformance(p.partFocus?raw.sharedPerformance:raw.performance,controls);p.calibration=validateCalibration(raw.calibration);return p;
 }
 const scene=(name,note,params={},routes={},extra={})=>({name,note,patch:validatePatch({...freshPatch(),params:{...defaults,...params},routes,...extra})});
 export const presets=[

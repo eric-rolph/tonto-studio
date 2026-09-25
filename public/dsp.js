@@ -1,14 +1,15 @@
+import {calibratedParameters,calibratedFrequency} from './calibration.js';
 import {SynthCore as ArpCore,Envelope,Ladder,polyBlep} from './arp/dsp.js';
 import {defaults,freshPatch,ports,families,matrixSources,matrixDestinations,validatePatch} from './model.js';
 import {compileCable,transfer} from './bus.js';
 import {StepSequencer} from './sequencer.js';
 import {Utilities} from './utilities.js';
 import {SpectralProcessor} from './spectral.js';
-import {PerformanceClock} from './performance-model.js';
+import {PerformanceRuntime} from './performance-runtime.js';
 const TAU=Math.PI*2,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 class Oscillator {
  constructor(){this.phase=0;}
- tick(hz,rate,pw=.5){const dt=clamp(hz,.001,rate*.4)/rate,t=this.phase;this.phase=(t+dt)%1;this.sine=Math.sin(TAU*t);this.saw=2*t-1-polyBlep(t,dt);this.pulse=(t<pw?1:-1)+polyBlep(t,dt)-polyBlep((t-pw+1)%1,dt);return this.sine;}
+ tick(hz,rate,pw=.5){if(this.calibration)hz=calibratedFrequency(hz,this.calibration);const dt=clamp(hz,.001,rate*.4)/rate,t=this.phase;this.phase=(t+dt)%1;this.sine=Math.sin(TAU*t);this.saw=2*t-1-polyBlep(t,dt);this.pulse=(t<pw?1:-1)+polyBlep(t,dt)-polyBlep((t-pw+1)%1,dt);return this.sine;}
 }
 class DiodeFilter {
  constructor(){this.z=new Float64Array(3);}
@@ -16,18 +17,18 @@ class DiodeFilter {
 }
 export class ModularCore {
  constructor(rate=48000){
-  this.rate=rate;this.params={...defaults};this.state=freshPatch();this.signals=Object.fromEntries(Object.keys(ports).map(k=>[k,0]));this.previous={...this.signals};this.frame=0;this.time=0;this.note=48;this.velocity=1;this.gate=false;this.retrigger=false;this.seed=582134;
+  this.partNotes={};this.rate=rate;this.params={...defaults};this.state=freshPatch();this.signals=Object.fromEntries(Object.keys(ports).map(k=>[k,0]));this.previous={...this.signals};this.frame=0;this.time=0;this.note=48;this.velocity=1;this.gate=false;this.retrigger=false;this.seed=582134;
   this.oscs=Array.from({length:9},()=>new Oscillator());this.moogFilter=new Ladder();this.diode=new DiodeFilter();this.env=new Envelope();this.benv=new Envelope();this.eenv=new Envelope();this.follow=0;this.bPhase=0;this.bLag=0;this.bLow=0;this.bLow2=0;this.emsStage=-1;this.emsTime=0;this.emsEnv=0;this.emsGate=false;
   this.spectral=new SpectralProcessor(rate);this.sequence=new StepSequencer(rate);this.utilities=new Utilities(rate);this.utilityInput=this.input.bind(this);this.step=0;this.lfoPhase=0;this.arp=new ArpCore(rate);
   const original=this.arp.input.bind(this.arp);
   const canRetrigger=this.arp.keyboardRetrigger.bind(this.arp);this.arp.keyboardRetrigger=id=>this.arpExternal[id]?['bridge.gate','arp.gate'].includes(this.arpExternal[id].source):canRetrigger(id);
   this.arp.input=id=>this.arpExternal[id]?transfer(this.arpExternal[id],this.previous[this.arpExternal[id].source]||0,this.hum):original(id);
   this.arpSignalKeys=Object.keys(ports).filter(k=>k.startsWith('arp.')&&ports[k].direction==='output'&&k!=='arp.out');
-  this.grainBuffer=new Float32Array(rate*3);this.write=0;this.grainPhases=[0,.25,.5,.75];this.grainStarts=[0,0,0,0];this.resBuffer=new Float32Array(rate);this.resWrite=0;this.resLow=0;this.delay=new Float32Array(Math.floor(rate*.113));this.delay2=new Float32Array(Math.floor(rate*.173));this.dp=0;this.dp2=0;this.dcIn=0;this.dcOut=0;this.last=new Float32Array(3);
+  this.grainBuffer=new Float32Array(rate*3);this.write=0;this.grainPhases=[0,.25,.5,.75];this.grainStarts=[0,0,0,0];this.resBuffer=new Float32Array(rate);this.resWrite=0;this.resLow=0;this.delay=new Float32Array(Math.floor(rate*.113));this.delay2=new Float32Array(Math.floor(rate*.173));this.dp=0;this.dp2=0;this.dcIn=0;this.dcOut=0;this.last=new Float32Array(7);
   this.configure(this.state);
  }
  configure(raw){
-  this.state=validatePatch(raw);this.target={...this.state.params};this.connections={};const counts={};
+  this.state=validatePatch(raw);this.arp.calibration=this.state.calibration;const owners=['moog','moog','moog','buchla','buchla','ems','ems','ems','euro'];for(let i=0;i<this.oscs.length;i++)this.oscs[i].calibration=this.state.calibration.enabled?this.state.calibration.units[owners[i]]:null;this.corrected=null;this.target={...this.state.params};this.connections={};const counts={};
   for(const s of Object.values(this.state.routes))counts[s]=(counts[s]||0)+1;
   for(const [id,p]of Object.entries(ports))if(p.direction==='input'){
    const explicit=this.state.routes[id],source=explicit||p.normal;
@@ -50,28 +51,31 @@ export class ModularCore {
    if(active.has('ems'))for(const [cell]of Object.entries(this.state.matrix))active.add(ports[matrixSources[+cell.split(':')[0]]].family);
   }this.active=Object.fromEntries([...active].map(k=>[k,true]));
  }
- on(note,velocity=1,retrigger=true,lower=note,upper=note){this.note=clamp(note,0,127);this.velocity=velocity;this.gate=true;this.retrigger=retrigger;this.arp.noteOn(this.note,velocity,retrigger,lower,upper);}
- keyboardRetrigger(id){return this.retrigger&&(!this.state.routes[id]||['bridge.gate','arp.gate','moog.gateOut','buchla.gateOut','ems.gateOut','euro.gateOut'].includes(this.state.routes[id]));}
- off(){this.gate=false;this.arp.noteOff();}
+ on(note,velocity=1,retrigger=true,lower=note,upper=note){this.note=clamp(note,0,127);this.velocity=velocity;this.gate=true;this.retrigger=retrigger;if(!this.state.parts.arp.enabled)this.arp.noteOn(this.note,velocity,retrigger,lower,upper);}
+ keyboardRetrigger(id){const family=id.split('.')[0];const retrigger=this.state.parts[family]?.enabled?this.partNotes[family]?.retrigger:this.retrigger;return retrigger&&(!this.state.routes[id]||['bridge.gate','arp.gate','moog.gateOut','buchla.gateOut','ems.gateOut','euro.gateOut'].includes(this.state.routes[id]));}
+ off(){this.gate=false;if(!this.state.parts.arp.enabled)this.arp.noteOff();}
+ partOn(id,n){const old=this.partNotes[id]||{note:48,velocity:1};this.partNotes[id]=n?{...n,gate:true}:{...old,gate:false,retrigger:false};if(id==='arp'){if(n)this.arp.noteOn(n.note,n.velocity,n.retrigger,n.lower,n.upper);else this.arp.noteOff();}}
+ partCV(id){return ((this.partNotes[id]?.note??48)-48)/12+Math.round(this.params.octave)+this.params.bend/12;}
  random(){let x=this.seed;x^=x<<13;x^=x>>>17;x^=x<<5;this.seed=x;return (x>>>0)/2147483648-1;}
- input(id,fallback=0){const cable=this.connections[id];if(!cable)return fallback;const explicit=this.state.routes[id];const value=(explicit?this.previous[cable.source]:this.signals[cable.source])??0;return transfer(cable,value,this.hum);}
- emsInput(id,fallback=0){if(this.state.routes[id])return this.input(id);const pins=this.matrixById[id];if(pins?.length){let value=0;for(const pin of pins)value+=(this.signals[pin.source]||0)*pin.gain;return clamp(value,-20,20);}return fallback;}
+ input(id,fallback=0){const cable=this.connections[id];if(!cable)return fallback;const explicit=this.state.routes[id];let value=(explicit?this.previous[cable.source]:this.signals[cable.source])??0;const family=id.split('.')[0];if(!explicit&&this.state.parts[family]?.enabled){if(cable.source==='bridge.pitch')value=this.partCV(family);if(cable.source==='bridge.gate')value=this.partNotes[family]?.gate?5:0;}return transfer(cable,value,this.hum);}
+ emsInput(id,fallback=0){if(this.state.routes[id])return this.input(id);const pins=this.matrixById[id];if(this.state.parts.ems.enabled&&pins?.length===1&&pins[0].gain===1){if(['ems.pitch','ems.pitch2'].includes(id)&&pins[0].source==='bridge.seq')return this.partCV('ems');if(id==='ems.gate'&&pins[0].source==='bridge.clock')return this.partNotes.ems?.gate?5:0;}if(pins?.length){let value=0;for(const pin of pins)value+=(this.signals[pin.source]||0)*pin.gain;return clamp(value,-20,20);}return fallback;}
  frequency(cv,semi=0,scale=1){return clamp(130.81278265*2**clamp(cv/scale+semi/12,-14,8),.02,this.rate*.38);}
  tick(mic=0){
-  const p=this.params,s=this.signals,rate=this.rate;
+  let p=this.params;const s=this.signals,rate=this.rate;
   if((this.frame&15)===0)for(const k in p)p[k]+=(this.target[k]-p[k])*.08;
+  if(this.state.calibration.enabled){if((this.frame&15)===0||!this.corrected)this.corrected=calibratedParameters(this.params,this.state.calibration);p=this.corrected;}
   if((this.frame&4095)===0)this.updateActive();
   this.time=this.frame/rate;
   this.hum=this.hasHum?.14*(Math.sin(TAU*p.mains*this.time)+.35*Math.sin(TAU*p.mains*2*this.time)+.15*Math.sin(TAU*p.mains*3*this.time))+.035*Math.sin(this.time*.71):0;
   s['bridge.mic']=Math.tanh(mic*p['bridge.micGain']);const rect=Math.abs(s['bridge.mic']);this.follow+=(rect-this.follow)*(1-Math.exp(-1/(rate*(rect>this.follow?.006:p['bridge.followRelease']))));s['bridge.env']=clamp(this.follow*p['bridge.followGain']*10,0,10);
   s['bridge.pitch']=(this.note-48)/12+Math.round(p.octave)+p.bend/12;s['bridge.gate']=this.gate?5:0;s['bridge.velocity']=this.velocity*5;s['bridge.expression']=p.expression*5;
-  const reset=this.sequence.tick(p.tempo,p.swing,this.state.routes['tools.seqClock']?this.input('tools.seqClock'):null,this.input('tools.reset'));this.step=this.sequence.step;
+  const reset=this.sequence.tick(p.tempo,p.swing,this.state.routes['tools.seqClock']?this.input('tools.seqClock'):null,this.input('tools.reset'),this.syncBeat);this.step=this.sequence.step;
   s['bridge.seq']=(this.state.sequence.transpose?s['bridge.pitch']:0)+this.state.steps[this.step]/12;s['bridge.clock']=this.sequence.gate;
   s['tools.rowB']=this.state.sequence.rowB[this.step];s['tools.rowC']=this.state.sequence.rowC[this.step];s['tools.pulse']=this.sequence.pulse;
   this.utilities.tick(p,s,this.utilityInput,reset);
   this.lfoPhase=(this.lfoPhase+p['bridge.lfo']/rate)%1;s['bridge.lfoOut']=Math.sin(TAU*this.lfoPhase)*5;s['bridge.noise']=this.random();
   s['bridge.scaleOut']=this.input('bridge.scaleIn')*p['bridge.scale']+p['bridge.bias'];const tg=this.connections['bridge.triggerIn'];const trigger=tg?(this.previous[tg.source]||0):s['bridge.gate'];const active=!tg?.blocked&&(tg?.sourceTrigger==='s'?trigger<1:trigger>2);s['bridge.strig']=active?0:5;s['bridge.vtrig']=active?5:0;
-  for(const f of ['moog','buchla','ems','euro']){s[f+'.pitchOut']=s['bridge.pitch']*(f==='buchla'?1.2:1);s[f+'.gateOut']=f==='moog'?(this.gate?0:5):(this.gate?(f==='buchla'?10:5):0);}
+  for(const f of ['moog','buchla','ems','euro']){const independent=this.state.parts[f].enabled,gate=independent?this.partNotes[f]?.gate:this.gate;s[f+'.pitchOut']=(independent?this.partCV(f):s['bridge.pitch'])*(f==='buchla'?1.2:1);s[f+'.gateOut']=f==='moog'?(gate?0:5):(gate?(f==='buchla'?10:5):0);}
   if(this.active.moog){const mcv=this.input('moog.pitch'),mg=this.input('moog.gate',5)<1;
   s['moog.env']=this.env.tick(mg,p['moog.attack'],p['moog.decay'],p['moog.sustain'],p['moog.release'],rate,this.keyboardRetrigger('moog.gate'))*10;
   const mhz=this.frequency(mcv+p['moog.fm']*this.input('moog.fmIn'),p['moog.tune']);let mf=0;
@@ -82,7 +86,7 @@ export class ModularCore {
    const signal=this.state.routes['moog.audio']?this.input('moog.audio'):blend*p['moog.mixA']+this.oscs[1].saw*p['moog.mixB']+this.oscs[2].sine*p['moog.mixSub'];
    mf+=this.moogFilter.tick(signal,p['moog.cutoff']*2**clamp(this.input('moog.cutCV')*.1*p['moog.depth']+p.expression*3,-8,8),p['moog.res'],rate*2,p['moog.drive'])*.5;
   }
-  s['moog.filter']=mf;s['moog.out']=Math.tanh(this.input('moog.amp')*clamp(p['moog.initial']+this.input('moog.ampCV')*.1,0,1.5)*1.4)*this.velocity;}
+  s['moog.filter']=mf;s['moog.out']=Math.tanh(this.input('moog.amp')*clamp(p['moog.initial']+this.input('moog.ampCV')*.1,0,1.5)*1.4)*(this.state.parts.moog.enabled?(this.partNotes.moog?.velocity??1):this.velocity);}
   if(this.active.buchla){const bcv=this.input('buchla.pitch'),bhz=this.frequency(bcv,p['buchla.tune'],1.2);this.oscs[3].tick(bhz*p['buchla.ratio'],rate);s['buchla.mod']=this.oscs[3].sine;
   this.oscs[4].tick(clamp(bhz*(1+s['buchla.mod']*p['buchla.fm'])+bhz*this.input('buchla.fmIn')*.2,.01,rate*.35),rate);
   // Smooth bounded wavefolding model. It is not a port of the Buchla circuit.
@@ -106,30 +110,24 @@ export class ModularCore {
   const size=Math.max(32,p['euro.size']*rate);let grains=0;for(let g=0;g<4;g++){this.grainPhases[g]+=1/size;if(this.grainPhases[g]>=1){this.grainPhases[g]-=1;this.grainStarts[g]=this.write-size*(1.2+g*.13);}let read=(this.grainStarts[g]+this.grainPhases[g]*size*p['euro.rate']+this.grainBuffer.length*4)%this.grainBuffer.length;const j=Math.floor(read),frac=read-j;grains+=(this.grainBuffer[j]*(1-frac)+this.grainBuffer[(j+1)%this.grainBuffer.length]*frac)*(.5-.5*Math.cos(TAU*this.grainPhases[g]))*.5;}
   s['euro.grains']=grains;s['euro.out']=s['euro.resonated']*(1-p['euro.grain'])+grains*p['euro.grain'];}
   if(this.active.fx)this.spectral.tick(p,s,this.utilityInput);
-  let left=(this.arpLeft||0)*p['arp.level'],right=(this.arpRight||0)*p['arp.level'];for(const f of ['moog','buchla','ems','euro','fx']){const signal=s[f+'.out']*p[f+'.level'],pan=clamp(p[f+'.pan']+(f==='ems'?this.emsInput('ems.panCV')*.1:0),-1,1);left+=signal*Math.sqrt((1-pan)*.5);right+=signal*Math.sqrt((1+pan)*.5);}s['bridge.mix']=(left+right)*.7071;
-  this.last[0]=clamp(Math.tanh(left),-1,1);this.last[1]=clamp(Math.tanh(right),-1,1);this.last[2]=s['bridge.mic'];
-  this.signals=this.previous;this.previous=s;this.retrigger=false;this.frame++;return this.last;
+  const solo=Object.values(this.state.parts).some(part=>part.enabled&&part.solo),audible=id=>{const part=this.state.parts[id];return !part?.enabled||!part.mute&&(!solo||part.solo);};
+  let left=0,right=0;this.last.fill(0);for(const f of ['moog','buchla','arp','ems','euro','fx']){if(!audible(f))continue;const level=p[f+'.level'],pan=clamp(p[f+'.pan']+(f==='ems'?this.emsInput('ems.panCV')*.1:0),-1,1),rear=p[f+'.rear'],frontGain=Math.sqrt(1-rear),rearGain=Math.sqrt(rear);let l,r;if(f==='arp'){l=(this.arpLeft||0)*level;r=(this.arpRight||0)*level;}else{const signal=s[f+'.out']*level;l=signal*Math.sqrt((1-pan)*.5);r=signal*Math.sqrt((1+pan)*.5);}left+=l;right+=r;this.last[3]+=l*frontGain;this.last[4]+=r*frontGain;this.last[5]+=l*rearGain;this.last[6]+=r*rearGain;}
+  s['bridge.mix']=(left+right)*.7071;this.last[0]=Math.tanh(left);this.last[1]=Math.tanh(right);this.last[2]=s['bridge.mic'];for(let i=3;i<7;i++)this.last[i]=Math.tanh(this.last[i]);
+  this.signals=this.previous;this.previous=s;this.retrigger=false;for(const n of Object.values(this.partNotes))n.retrigger=false;this.frame++;return this.last;
  }
 }
 if(typeof AudioWorkletProcessor!=='undefined'){
  class Processor extends AudioWorkletProcessor{
   constructor(){super();this.core=new ModularCore(sampleRate);this.peak=0;
-   this.performance=new PerformanceClock(sampleRate,n=>n?this.core.on(n.note,n.velocity,n.retrigger,n.lower,n.upper):this.core.off(),(key,value)=>this.core.set({[key]:value}));
-   this.port.onmessage=({data:m})=>{
-    if(m.type==='configure'){this.core.configure(m.state);this.performance.values={};}
+   this.runtime=new PerformanceRuntime(sampleRate,{voice:n=>n?this.core.on(n.note,n.velocity,n.retrigger,n.lower,n.upper):this.core.off(),partVoice:(id,n)=>this.core.partOn(id,n),parameter:(key,value)=>this.core.set(key?{[key]:value}:value)});this.performance=this.runtime.performance;
+   this.port.onmessage=({data:m})=>{this.runtime.message(m);if(m.type==='transport'&&m.action==='stop'){this.core.sequence.running=false;this.core.state.sequencer=false;}
+    if(m.type==='configure'){this.core.configure(m.state);this.runtime.configure(m.state);}
     if(m.type==='sequence')this.core.sequence.command(m.action);
     if(m.type==='params'){this.core.set(m.values);for(const key of Object.keys(m.values))delete this.performance.values[key];}
-    if(m.type==='on')this.performance.liveOn(m);
-    if(m.type==='off')this.performance.liveOff();
-    if(m.type==='performance'){
-     if(m.action==='start')this.performance.start(m.clip,m.options);
-     if(m.action==='stop'){this.performance.stop();this.core.set(m.restore||{});}
-     if(m.action==='click'&&this.performance.clip)this.performance.clip.click=m.enabled;
-    }
-    if(m.type==='panic'){this.performance.live=null;this.performance.stop();const state=this.core.state;this.core=new ModularCore(sampleRate);state.sequencer=false;this.core.configure(state);}
+    if(m.type==='panic'){this.runtime.stop();const state=this.core.state;this.core=new ModularCore(sampleRate);state.sequencer=false;this.core.configure(state);}
    };
   }
-  process(inputs,outputs){const a=outputs[0],mic=inputs[0]?.[0];for(let i=0;i<a[0].length;i++){const click=this.performance.tick(currentFrame+i),v=this.core.tick(mic?.[i]||0);a[0][i]=v[0];a[1][i]=v[1];outputs[1][0][i]=v[2];if(outputs[2])outputs[2][0][i]=click;this.peak=Math.max(this.peak,Math.abs(v[0]),Math.abs(v[1]));}if(this.core.frame%2048===0){this.port.postMessage({peak:this.peak,mic:this.core.follow,step:this.core.step,bands:this.core.active.fx?Array.from(this.core.spectral.envelopes):[],signals:Object.fromEntries(['moog.env','buchla.function','ems.env','bridge.env'].map(k=>[k,this.core.signals[k]])),performance:{running:this.performance.running,position:this.performance.position||0,values:this.performance.values,notes:[...this.performance.held.values()].map(n=>n.note)}});this.peak=0;}return true;}
+  process(inputs,outputs){const a=outputs[0],mic=inputs[0]?.[0];for(let i=0;i<a[0].length;i++){const click=this.runtime.tick(currentFrame+i);this.core.syncBeat=this.runtime.transport.running?this.runtime.transport.beat:null;const v=this.core.tick(mic?.[i]||0);a[0][i]=v[0];a[1][i]=v[1];outputs[1][0][i]=v[2];if(outputs[3])for(let c=0;c<4;c++)outputs[3][c][i]=v[c+3];if(outputs[2])outputs[2][0][i]=click;this.peak=Math.max(this.peak,Math.abs(v[0]),Math.abs(v[1]));}if(this.core.frame%2048===0){this.port.postMessage({peak:this.peak,mic:this.core.follow,step:this.core.step,bands:this.core.active.fx?Array.from(this.core.spectral.envelopes):[],signals:Object.fromEntries(['moog.env','buchla.function','ems.env','bridge.env'].map(k=>[k,this.core.signals[k]])),transport:{running:this.runtime.transport.running,beat:this.runtime.transport.beat},parts:Object.fromEntries(Object.entries(this.core.partNotes).map(([id,n])=>[id,{note:n.note,gate:n.gate}])),performance:{running:this.performance.running,position:this.performance.position||0,values:this.performance.values,notes:[...this.performance.held.values()].map(n=>n.note)}});this.peak=0;}return true;}
 
  }
  registerProcessor('tonto-console',Processor);

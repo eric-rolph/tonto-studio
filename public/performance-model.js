@@ -13,7 +13,7 @@ export function validatePerformance(raw={},controls={}){
  let remaining=12000;
  for(const [id,points] of Object.entries(raw.lanes||{})){
   if(!automatable(id,controls)||!Array.isArray(points)||!remaining||Object.keys(p.lanes).length>=32)continue;
-  const c=controls[id],clean=points.slice(0,Math.min(2048,remaining)).filter(p=>p&&Number.isFinite(p.at)&&p.at>=0&&p.at<=beats&&Number.isFinite(p.value)).map(p=>({at:p.at,value:clamp(p.value,c.min,c.max)})).sort((a,b)=>a.at-b.at);
+  const c=controls[id],clean=points.slice(0,Math.min(2048,remaining)).filter(p=>p&&Number.isFinite(p.at)&&p.at>=0&&p.at<=beats&&Number.isFinite(p.value)).map(p=>({at:p.at,value:clamp(p.value,c.min,c.max),...(['linear','smooth'].includes(p.curve)?{curve:p.curve}:{})})).sort((a,b)=>a.at-b.at);
   if(clean.length){p.lanes[id]=clean.filter((p,i)=>i===clean.length-1||clean[i+1].at!==p.at);remaining-=p.lanes[id].length;}
  }
  return p;
@@ -46,7 +46,7 @@ export class PerformanceClock{
   if(cycle!==this.cycle){this.cycle=cycle;this.held.clear();this.emit(false);this.index=0;this.values={};for(const lane of this.lanes)lane.index=0;}
   if(music>=0){
    while(this.index<this.events.length&&this.events[this.index].frame<=local){const e=this.events[this.index++];if(e.on){this.held.delete(e.id);this.held.set(e.id,e.n);}else this.held.delete(e.id);if(!this.live)this.emit(e.on);}
-   if(local%32===0||local===0)for(const lane of this.lanes){const points=lane.points;while(lane.index+1<points.length&&points[lane.index+1].at<=this.position)lane.index++;const value=points[lane.index].value;if(this.values[lane.id]!==value){this.values[lane.id]=value;this.parameter(lane.id,value);}}
+   if(local%32===0||local===0)for(const lane of this.lanes){const points=lane.points;while(lane.index+1<points.length&&points[lane.index+1].at<=this.position)lane.index++;const point=points[lane.index],next=points[lane.index+1];if(this.position<point.at)continue;let value=point.value;if(next&&['linear','smooth'].includes(point.curve)){let t=clamp((this.position-point.at)/(next.at-point.at),0,1);if(point.curve==='smooth')t=t*t*(3-2*t);value=point.value+(next.value-point.value)*t;}if(this.values[lane.id]!==value){this.values[lane.id]=value;this.parameter(lane.id,value);}}
   }
   const beat=music<0?Math.floor(elapsed/this.framesPerBeat):Math.floor(local/this.framesPerBeat),tag=music<0?beat:this.countIn+cycle*this.clip.bars*4+beat;
   if(tag!==this.lastBeat){this.lastBeat=tag;this.clickAge=0;this.clickHz=beat%4===0?1400:950;}

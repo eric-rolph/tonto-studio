@@ -17,7 +17,7 @@ export function setupLiveSignal(engine,root){
   if(!nextWidth||!nextHeight)return;
   if(width!==nextWidth||height!==nextHeight){canvas.width=width=nextWidth;canvas.height=height=nextHeight;}
   const running=engine.ctx?.state==='running'&&engine.analyser;
-  if(running){engine.analyser.getFloatTimeDomainData(output);engine.micAnalyser.getFloatTimeDomainData(microphone);}
+  if(running){(engine.quadEnabled?engine.quadScope:engine.analyser).getFloatTimeDomainData(output);if(engine.quadEnabled)for(let i=0;i<output.length;i++)output[i]*=engine.params.master;engine.micAnalyser.getFloatTimeDomainData(microphone);}
   else{output.fill(0);microphone.fill(0);}
   const rate=engine.ctx?.sampleRate||48000,count=Math.max(2,Math.min(output.length,Math.round(Number(windowControl.value)*rate/1000))),gain=Number(gainControl.value);
   state.textContent=running?`LIVE · ${(count/rate*1000).toFixed(1)} ms`:engine.ctx?'AUDIO SUSPENDED':'AUDIO OFF';

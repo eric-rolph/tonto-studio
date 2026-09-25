@@ -9,3 +9,5 @@
 @media(max-width:760px){#performance-memory{padding:16px 12px}.performance-heading{gap:8px}.performance-heading h2{font-size:25px}.performance-heading output{font-size:10px;min-width:100px}.performance-transport,.performance-options{gap:12px}.performance-transport button{flex:1 0 auto}.note-table th,.note-table td{padding:6px 4px}.note-table input{width:70px}.patch-history span{flex-basis:100%}#learn-target{max-width:calc(100vw - 135px)}}
 
 .key.loop-note{box-shadow:inset 0 -7px #96ba97}.key.black.loop-note{box-shadow:inset 0 -7px #96ba97,inset 0 0 2px #000}
+
+.recovery-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0;font-size:12px}.recovery-controls span{flex-basis:100%;color:#bdcdbf}.recovery-controls button{font-size:11px}

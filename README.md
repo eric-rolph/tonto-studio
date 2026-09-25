@@ -1,4 +1,8 @@
 # TONTO Studio
+## Session and performance update
+
+Automatic local recovery now includes unfinished recordings. Shared transport, MIDI clock, cabinet clip banks/chains, overdub, draggable notes and automation, tape trims/fades, MIDI files and 24-bit/32-bit float WAV are available. The standalone 2600 also has performance capture, MIDI learn and patch undo/redo. TONTO adds frequency shifting, phasing and quad routing. See the [workflow, limits and validation guide](docs/studio-completion.md), including the remaining hardware-calibration work.
+
 
 A browser instrument with five synthesizer cabinets, a shared patch bus, microphone and MIDI input, an EMS-style pin matrix, and a two-stem tape deck.
 
@@ -28,7 +32,7 @@ Live audio runs at a requested 48 kHz context rate; the browser handles conversi
 
 ## Performance memory
 
-**Notes & motion** records up to eight bars of keyboard/MIDI notes and synth control movements. A monitor-only metronome and zero/one/two-bar count-in help capture a phrase. Playback runs on the audio thread; the note editor changes pitches, starts, lengths and velocities, and quantizes to a chosen grid. Automation lanes can be removed separately. Factory sound changes preserve the phrase; Performance presets load their included notes and motion. Saved patches and full session files include it; use Tape to render it to WAV or record microphone audio.
+**Notes & motion** records up to eight bars of keyboard/MIDI notes and synth control movements. A monitor-only metronome and zero/one/two-bar count-in help capture a phrase. Playback runs on the audio thread; the note editor changes pitches, starts, lengths and velocities, and quantizes to a chosen grid. Automation lanes support editable step, linear and smooth curves. Factory sound changes preserve the phrase; Performance presets load their included notes and motion. Saved patches and full session files include it; use Tape to render it to WAV or record microphone audio.
 
 **MIDI controller mappings** learns an absolute CC for any synth parameter by device and channel. Right-click a synth control or select one in the mapping panel. Mappings stay in this browser. Sustain and panic remain reserved.
 

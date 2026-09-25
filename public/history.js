@@ -12,5 +12,5 @@ export function setupHistory({engine,load,status}){
  const h=new PatchHistory(()=>engine.state,p=>load(p,'Restored patch edit.'),()=>{undo.disabled=!h.past.length;redo.disabled=!h.future.length;});
  engine.addEventListener('patchchange',()=>h.changed());
  const travel=forward=>{h.travel(forward);status(forward?'Patch edit redone.':'Patch edit undone. Notes and sequencers stopped; tape takes kept.');};undo.onclick=()=>travel(false);redo.onclick=()=>travel(true);
- window.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey||e.target.matches('input:not([type=range]):not([type=checkbox]),textarea,select')||document.querySelector('dialog[open]'))return;const key=e.key.toLowerCase();if(key==='z'||key==='y'){e.preventDefault();travel(key==='y'||e.shiftKey);}});return h;
+ window.addEventListener('keydown',e=>{if(!(e.ctrlKey||e.metaKey)||e.altKey||e.target.matches('input:not([type=range]):not([type=checkbox]),textarea,select')||document.querySelector('dialog[open]'))return;const key=e.key.toLowerCase();if(key==='z'||key==='y'){e.preventDefault();travel(key==='y'||e.shiftKey);}});engine.history=h;return h;
 }

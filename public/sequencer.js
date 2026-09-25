@@ -24,7 +24,7 @@ export class StepSequencer {
   this.available=Array.from({length:state.sequence.length},(_,i)=>i).filter(i=>state.sequence.modes[i]!=='skip');
   if(starting||stopping||!this.available.includes(this.step))this.reset();
  }
- reset(){this.step=this.state.sequence.direction==='reverse'?this.available.at(-1)??0:this.available[0]??0;this.phase=0;this.travel=1;this.externalStarted=false;this.manual=0;this.didReset=true;}
+ reset(){this.syncIndex=undefined;this.step=this.state.sequence.direction==='reverse'?this.available.at(-1)??0:this.available[0]??0;this.phase=0;this.travel=1;this.externalStarted=false;this.manual=0;this.didReset=true;}
  advance(){
   const list=this.available,n=list.length;if(!n)return;
   const pos=Math.max(0,list.indexOf(this.step)),direction=this.state.sequence.direction;
@@ -33,14 +33,18 @@ export class StepSequencer {
   else this.step=list[(pos+(direction==='reverse'?-1:1)+n)%n];
  }
  command(action){if(['reset','step'].includes(action))this.pending=action;}
- tick(tempo,swing,external,resetVoltage){
+ tick(tempo,swing,external,resetVoltage,syncBeat=null){
   const reset=this.resetEdge.tick(resetVoltage)||this.pending==='reset',edge=this.clock.tick(external??0);
   if(reset)this.reset();
   if(this.pending==='step'){this.advance();this.phase=0;this.manual=Math.round(this.rate*.05);}
   this.pending=null;
   const settings=this.state.sequence;
   if(this.running&&external!==null){if(edge&&!reset){if(this.externalStarted)this.advance();this.externalStarted=true;}this.pulse=this.externalStarted&&this.clock.high?5:0;}
-  else if(this.running){
+  else if(this.running&&Number.isFinite(syncBeat)){
+   const steps=syncBeat*settings.division,pair=Math.floor(steps/2),within=steps-pair*2,index=pair*2+(within>=1+swing?1:0),phase=within<1+swing?within/(1+swing):(within-1-swing)/(1-swing);
+   if(this.syncIndex===undefined||index<this.syncIndex){this.reset();this.syncIndex=0;}
+   let moves=Math.min(100000,index-this.syncIndex);while(moves-->0)this.advance();this.syncIndex=index;this.phase=phase;this.pulse=phase<settings.width?5:0;
+  }else if(this.running){this.syncIndex=undefined;
    // Test the boundary before emitting: the first sample belongs to step one.
    if(this.phase>=1&&!reset){this.phase-=1;this.advance();}
    this.pulse=this.phase<settings.width?5:0;

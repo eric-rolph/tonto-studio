@@ -1,3 +1,4 @@
+import {calibrationDefaults,calibratedParameters,calibratedFrequency} from '../calibration.js';
 import { defaults, normal } from './model.js';
 
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -49,7 +50,7 @@ class Spring {
 
 export class SynthCore {
   constructor(rate=48000){
-    this.rate=rate;this.osRate=rate*2;this.params={...defaults};this.target={...defaults};this.routes={};
+    this.calibration=calibrationDefaults();this.rate=rate;this.osRate=rate*2;this.params={...defaults};this.target={...defaults};this.routes={};
     this.signals=Object.fromEntries(Object.values(normal).map(s=>[s,0]));
     this.phases=[0,.23,.51];this.tri=0;this.pink=[0,0,0];this.lowNoise=0;this.seed=173812;
     this.filter=new Ladder();this.springL=new Spring(rate);this.springR=new Spring(rate*1.013);
@@ -65,7 +66,7 @@ export class SynthCore {
   noteOff(){this.gate=false;}
   random(){let x=this.seed;x^=x<<13;x^=x>>>17;x^=x<<5;this.seed=x;return (x>>>0)/2147483648-1;}
   tick(mic=0){
-    const p=this.params,s=this.signals;
+    let p=this.params;const s=this.signals;
     // Smooth all continuous controls on the audio thread to avoid zipper noise.
     if((this.frame&15)===0){for(const k in p)p[k]+=(this.target[k]-p[k])*.07;this.glideStep=p.glide>.001?1-Math.exp(-1/(p.glide*this.rate)):1;this.followAttack=1-Math.exp(-1/(this.rate*Math.max(.001,p.efAttack)));this.followRelease=1-Math.exp(-1/(this.rate*Math.max(.001,p.efRelease)));this.lagStep=1-Math.exp(-1/(this.rate*Math.max(.001,p.lag)));}
     const wanted=((p.duo>.5?this.lowerNote:this.note)-48)/12+p.octave+p.bend/12;
@@ -81,6 +82,7 @@ export class SynthCore {
     const ef=Math.abs(this.input('efInput'));
     this.follow+=(ef-this.follow)*(ef>this.follow?this.followAttack:this.followRelease);
     s.ef=clamp(this.follow*p.efGain*5,0,10);
+    if(this.calibration.enabled){if((this.frame&15)===0||!this.corrected)this.corrected=calibratedParameters(this.params,this.calibration,'arp');p=this.corrected;}
     s.adsr=10*this.adsr.tick(this.input('adsrGate')>1,p.attack,p.decay,p.sustain,p.release,this.rate,this.retrigger&&this.keyboardRetrigger('adsrGate'));
     s.ar=10*this.ar.tick(this.input('arGate')>1,p.arAttack,.002,1,p.arRelease,this.rate,this.retrigger&&this.keyboardRetrigger('arGate'));
     this.retrigger=false;
@@ -105,7 +107,7 @@ export class SynthCore {
       for(let k=0;k<3;k++){
         const n=k+1,base='v'+n;
         const pitch=p[base+'lf']>.5?0:this.input(base+'pitch');
-        const hz=clamp((p[base+'lf']>.5?.5:130.81278265)*2**clamp(pitch+p[base+'coarse']/12+p[base+'fine']/1200+this.input(base+'fm')*p[base+'fm'], -16,12),.01,this.rate*.4);
+        let hz=clamp((p[base+'lf']>.5?.5:130.81278265)*2**clamp(pitch+p[base+'coarse']/12+p[base+'fine']/1200+this.input(base+'fm')*p[base+'fm'], -16,12),.01,this.rate*.4);if(this.calibration.enabled&&p[base+'lf']<.5)hz=clamp(calibratedFrequency(hz,this.calibration.units.arp),.01,this.rate*.4);
         const dt=hz/this.osRate,t=this.phases[k];
         const pw=clamp(p[base+'pw']+(k===1?this.input('v2pwm')*p.v2pwm*.1:0),.03,.97);
         const saw=2*t-1-polyBlep(t,dt);

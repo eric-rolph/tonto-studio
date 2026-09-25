@@ -15,7 +15,9 @@ This review compared the studios' public documentation with TONTO's running appl
 
 The new **Notes & motion** panel sits just before Tape and has a rack-navigation link. Its note overview shows pitch versus time; numeric editing remains usable from a keyboard and at small screen widths. MIDI mappings sit in a disclosure beneath it. Patch history sits beside patch memory.
 
-## Behavior and limits
+## Behavior and limits at the initial comparison
+
+These are historical notes. The [subsequent completion update](studio-completion.md) adds recovery, parts, clip chains, overdub, editors, shared transport, MIDI clock and tape edits.
 
 - The performance loop is a shared keyboard-bus phrase, not independent MIDI tracks for each cabinet. Existing mono/duo voice behavior is preserved. Live keys take priority over loop notes; releasing them returns to the phrase. Stop releases loop notes without releasing a physically held key. Panic stops everything as before.
 - Record replaces the previous phrase when capture completes. Cancel during count-in leaves it intact. Undo can recover a replaced phrase. Factory patch changes keep the phrase for auditioning; saved patch/session/import loads restore their own data. Save/export finishes an active capture first.
@@ -27,7 +29,7 @@ The new **Notes & motion** panel sits just before Tape and has a rack-navigation
 - MIDI learn accepts ordinary 7-bit absolute CC messages, not relative encoders or high-resolution NRPN. CC64 sustain and CC120–127 system/channel-mode messages are reserved. A learned CC supersedes a built-in assignment only for that device/channel. Browser MIDI device identifiers must remain stable for an existing mapping to match.
 - Patch/session files include notes and automation. MIDI mappings are computer/browser preferences, not part of a patch. Undo history is bounded to forty edits, clears on reload, and does not include tape audio or controller mappings. Undo stops synth/loop playback while leaving tape takes intact.
 
-## Further gaps
+## Gaps identified by the initial comparison
 
 [Soundation's studio tools](https://next.soundation.com/studio-tools) also cover audio/MIDI editing, automation and collaboration. Full DAW workflows still exceed this update: multi-clip song arrangement, independent instrument tracks, detailed tape trimming/fades, cloud collaboration, and automatic audio-session recovery. Webrack's add/remove module library is a different rack model from TONTO's fixed cabinet collection. Those changes need their own design and persistence work; they are not represented here as implemented.
 
@@ -35,4 +37,4 @@ The new **Notes & motion** panel sits just before Tape and has a rack-navigation
 
 New Node tests cover backwards-compatible patch/session round-trips, input bounds, quantization, exact count-in/note timing at 44.1/48/96 kHz, loop boundaries, live-note priority, held-note release, real DSP output, automation resets, controller scaling and history branching. New browser tests exercise recording, sustain, editing, audible replay, count-in cancellation, click exclusion from recorded samples, learn/persist/remove mappings, undo/redo, file round-trips, factory sound auditioning and mobile widths.
 
-Hardware controller behavior is simulated in browser tests; a physical MIDI keyboard was not available for hands-on verification. Timing tests establish the software schedule, not measured hardware latency or analog waveform equivalence.
+Hardware controller behavior in this comparison was simulated in browser tests; a physical MIDI keyboard was not available for hands-on verification. Timing tests establish the software schedule, not measured hardware latency or analog waveform equivalence.

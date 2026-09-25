@@ -1,3 +1,4 @@
+import {FrequencyShifter,Phaser} from './creative-processors.js';
 // Original implementation of the RBJ/W3C biquad equations. See docs/audit.md.
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export const bandFrequencies=[125,175,250,350,500,700,1000,1400,2000,2800,4000,5600];
@@ -12,7 +13,7 @@ export class Biquad {
 }
 export class SpectralProcessor {
  constructor(rate){
-  this.rate=rate;this.frame=0;this.bandGain=new Float64Array(12);this.envelopes=new Float64Array(12);this.bank=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.analysis=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.carrier=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.lowShelf=new Biquad(rate,'low',88);this.highShelf=new Biquad(rate,'high',8000);
+  this.shifter=new FrequencyShifter(rate);this.phaser=new Phaser(rate);this.rate=rate;this.frame=0;this.bandGain=new Float64Array(12);this.envelopes=new Float64Array(12);this.bank=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.analysis=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.carrier=bandFrequencies.map(f=>new Biquad(rate,'band',f,3));this.lowShelf=new Biquad(rate,'low',88);this.highShelf=new Biquad(rate,'high',8000);
   this.low=new Biquad(rate,'low',1000);this.band=new Biquad(rate,'band',1000);this.high=new Biquad(rate,'high',1000);this.shift=null;this.frequency=null;this.q=null;this.release=null;
  }
  tick(p,s,input){
@@ -32,6 +33,7 @@ export class SpectralProcessor {
    vocoded+=this.carrier[i].tick(carrier)*clamp(this.envelopes[i]*p['fx.sensitivity'],0,2)*this.bandGain[i];
   }
   s['fx.bank']=clamp(bank,-20,20);s['fx.low']=clamp(this.low.tick(audio),-20,20);s['fx.band']=clamp(this.band.tick(audio),-20,20);s['fx.high']=clamp(this.high.tick(audio),-20,20);s['fx.vocoder']=clamp(vocoded*2,-20,20);
-  s['fx.out']=s[['fx.bank','fx.low','fx.band','fx.high','fx.vocoder'][Math.round(p['fx.monitor'])]];
+  s['fx.shifted']=this.shifter.tick(input('fx.shiftIn'),p['fx.shiftHz']+input('fx.shiftCV')*100,p['fx.shiftMix']);s['fx.phased']=this.phaser.tick(input('fx.phaseIn'),p['fx.phaseRate'],p['fx.phaseDepth'],p['fx.phaseFeedback'],p['fx.phaseMix']);
+  s['fx.out']=s[['fx.bank','fx.low','fx.band','fx.high','fx.vocoder','fx.shifted','fx.phased'][Math.round(p['fx.monitor'])]];
  }
 }

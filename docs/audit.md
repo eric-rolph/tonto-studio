@@ -72,3 +72,8 @@ Representative warm Node measurements on this PC, milliseconds to calculate one 
 These short CPU measurements are indicative, not browser deadline, dropout or end-to-end latency certification. The 96 kHz all-cabinet case remains unsuitable for real-time use on this test PC. Background load and slower devices can affect 48 kHz performance too.
 
 Physical MIDI hardware, the user's microphone/audio interface, Safari/Firefox, long recording sessions near the memory limit, and analog calibration were not tested. Synthetic microphone and MIDI checks exercise application behavior without certifying those devices. Oscillator spectra, nonlinear filter behavior, noise color, spring dispersion and tape hysteresis still need measured hardware comparisons. Tape loops retain a short transport gap. The sequencer remains eight stages without MIDI clock/recording or chained patterns. Frequency shifting, phasing and quadraphonic routing remain future work.
+
+
+## Subsequent completion update
+
+The [session and performance update](studio-completion.md) replaces the transport-gap and future-work notes above. It adds shared timing/MIDI clock, independent parts and chains, recovery, editing, high-resolution WAV, frequency shifting, phasing and quad routing. Both studios passed three-minute capture/recovery/export stress tests. Physical signal-path validation and analog hardware equivalence remain unverified.
