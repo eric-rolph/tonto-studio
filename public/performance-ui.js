@@ -14,7 +14,7 @@ export function setupPerformance({engine,root,power,safe,status,syncControls,for
  const clip=()=>engine.state.performance,beats=()=>clip().bars*4;
  function beat(){return (engine.ctx.currentTime-start)*tempo/60;}
  function changed(){engine.state.performance=validatePerformance(clip(),controls);engine.configure();render();}
- function draw(){const c=clip(),canvas=$('#performance-roll'),ctx=canvas.getContext('2d'),w=canvas.width,h=canvas.height;ctx.clearRect(0,0,w,h);ctx.fillStyle='#17211d';ctx.fillRect(0,0,w,h);const lo=Math.min(48,...c.notes.map(n=>n.note)),hi=Math.max(72,...c.notes.map(n=>n.note)),row=(h-24)/(hi-lo+1);ctx.font='11px monospace';for(let b=0;b<c.bars*4;b++){const x=b/(c.bars*4)*w;ctx.strokeStyle=b%4===0?'#506055':'#2c3b32';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();if(b%4===0){ctx.fillStyle='#b5c4b5';ctx.fillText(String(b/4+1),x+5,14);}}for(const n of c.notes){ctx.fillStyle=`rgba(226,164,101,${.35+n.velocity*.65})`;ctx.fillRect(n.at/(c.bars*4)*w,22+(hi-n.note)*row,Math.max(2,n.length/(c.bars*4)*w-1),Math.max(2,row-1));}}
+ function draw(){const c=clip(),canvas=$('#performance-roll'),ctx=canvas.getContext('2d'),ratio=Math.min(devicePixelRatio||1,2),w=Math.max(1,canvas.clientWidth),h=132;canvas.width=Math.round(w*ratio);canvas.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);ctx.fillStyle='#17211d';ctx.fillRect(0,0,w,h);const lo=Math.min(48,...c.notes.map(n=>n.note)),hi=Math.max(72,...c.notes.map(n=>n.note)),row=(h-24)/(hi-lo+1);ctx.font='11px monospace';for(let b=0;b<c.bars*4;b++){const x=b/(c.bars*4)*w;ctx.strokeStyle=b%4===0?'#506055':'#2c3b32';ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();if(b%4===0){ctx.fillStyle='#b5c4b5';ctx.fillText(String(b/4+1),x+5,14);}}for(const n of c.notes){ctx.fillStyle=`rgba(226,164,101,${.35+n.velocity*.65})`;ctx.fillRect(n.at/(c.bars*4)*w,22+(hi-n.note)*row,Math.max(2,n.length/(c.bars*4)*w-1),Math.max(2,row-1));}}
  function render(){const c=clip();$('#performance-bars').value=c.bars;$('#performance-tempo').value=engine.params.tempo;$('#performance-count').value=c.countIn;$('#performance-loop').checked=c.loop;$('#performance-click').checked=c.click;
   for(const id of ['performance-bars','performance-tempo','performance-count','performance-loop','capture-notes','capture-motion','performance-add','performance-quantize','performance-clear'])$('#'+id).disabled=!!mode;
   document.querySelector('#tempo').disabled=!!mode;
@@ -56,5 +56,6 @@ export function setupPerformance({engine,root,power,safe,status,syncControls,for
  $('#performance-clear').onclick=()=>{clip().notes=[];clip().lanes={};changed();status('Loop cleared. Undo restores it.');};
  window.addEventListener('beforeunload',e=>{if(captured||mode==='record'){e.preventDefault();e.returnValue='';}});
  engine.stopPerformance=finish;document.addEventListener('click',e=>{if(e.target.closest('#save-patch,#export-patch,#save-session'))finish();},true);
+ new ResizeObserver(draw).observe($('#performance-roll'));
  setupMidiLearn({engine,root:$('#midi-learn-panel'),status,safe});render();return {stop:finish,render,get mode(){return mode;}};
 }
