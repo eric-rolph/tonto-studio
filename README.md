@@ -4,8 +4,6 @@ A browser instrument with five synthesizer cabinets, a shared patch bus, microph
 
 Live site: https://tonto-studio.ericrolph.workers.dev/
 
-Private repository: https://github.com/eric-rolph/tonto-studio
-
 ## Play
 
 Choose a patch, start audio, and use the on-screen keyboard or A W S E D F T G Y H U J K. Z/X change octaves. MIDI supports notes, velocity, pitch bend, sustain, CC1/11 expression and CC7 master volume. Each cabinet has its own output level and pan.
