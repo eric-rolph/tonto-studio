@@ -14,7 +14,7 @@ Click or drag between output and input jacks; valid targets get green rings. A s
 
 Enable a microphone, then use **Patch microphone** or **MIC OUT** to reach any input. **MIC ENV** carries loudness as a control voltage. Audio stays in the browser; no server receives microphone samples, recordings or patches. Use headphones while monitoring.
 
-The eight-step sequencer exposes pitch and gate outputs. Patch those to other cabinets, or load Matrix runner. The EMS matrix has 16 sources and 16 destinations; pins sum at full, half or negative strength. External cables override the corresponding column. The joystick supplies two control voltages.
+The Sequencer & utilities cabinet has three eight-step rows, rests/skips, variable length, direction, external clock/reset, pulse divisions and a sequential switch. It also adds a signed audio/CV mixer, two VCAs, a cycling rise/fall function, pitch quantizer and slew limiter. Try patches 11–14; see [wiring, historical sources and module behavior](docs/sequencing-and-utilities.md). The EMS matrix has 16 sources and 16 destinations; pins sum at full, half or negative strength. External cables override the corresponding column. The joystick supplies two control voltages.
 
 Save stores patches locally. Export/import transfers the complete console state as JSON. Existing 2600 Studio JSON patches import into the ARP cabinet, which also includes the 21 original presets. Factory scenes describe synthesis techniques, not verified recreations of commercial recordings.
 

@@ -1,7 +1,9 @@
 import {defaults as arpDefaults, sources as arpSources, destinations as arpInputs, presets as arpPresets} from './arp/model.js';
+import {sequenceDefaults,validateSequence} from './sequencer.js';
 
 export const families = {
   bridge:{name:'Master console',connector:'mini',pitch:1},
+  tools:{name:'Sequencer & utilities',connector:'mini',pitch:1},
   moog:{name:'Moog 55',connector:'phone',pitch:1},
   buchla:{name:'Buchla 200',connector:'banana',pitch:1.2},
   arp:{name:'ARP 2600',connector:'mini',pitch:1},
@@ -12,6 +14,13 @@ export const controls = {};
 function c(id,label,value,min=0,max=1,unit='',log=false){controls[id]={id,label,value,min,max,unit,log};return id;}
 const group=(title,...ids)=>({title,ids});
 export const panels = {
+ tools:[
+  group('DC mixer / attenuverters',c('tools.mix1','Input 1',1,-2,2,'×'),c('tools.mix2','Input 2',1,-2,2,'×'),c('tools.mix3','Input 3',1,-2,2,'×'),c('tools.offset','Offset',0,-5,5,'V')),
+  group('Dual linear VCA',c('tools.gainA','A initial',0),c('tools.gainB','B initial',0)),
+  group('Rise / fall function',c('tools.rise','Rise',.01,.001,5,'s',true),c('tools.fall','Fall',.25,.001,8,'s',true),c('tools.cycle','Cycle',0,0,1,'switch')),
+  group('Pitch quantizer',c('tools.scale','Scale',0,0,3,'scale'),c('tools.root','Root',0,0,11,'root')),
+  group('Slew / portamento',c('tools.slewRise','Rise / volt',.05,.001,4,'s',true),c('tools.slewFall','Fall / volt',.05,.001,4,'s',true)),
+ ],
  moog:[
   group('921 · oscillator bank',c('moog.tune','Tune',-12,-36,36,'st'),c('moog.detune','Beat',4,-30,30,'ct'),c('moog.wave','Saw / pulse',0),c('moog.pw','Pulse width',.5,.05,.95),c('moog.fm','FM amount',.05,0,3,'V')),
   group('Mixer / 904A · ladder',c('moog.mixA','Osc A',.55),c('moog.mixB','Osc B',.3),c('moog.mixSub','Sub',.15),c('moog.cutoff','Cutoff',650,30,14000,'Hz',true),c('moog.res','Resonance',.35,0,.97),c('moog.drive','Drive',.25),c('moog.depth','Env amount',3,-4,6,'V')),
@@ -49,8 +58,18 @@ export const ports={};
 function port(id,name,direction,kind='audio',normal=null,extra={}){const family=id.split('.')[0],f=families[family];ports[id]={id,name,direction,kind,family,connector:family==='buchla'&&kind==='audio'?'mini':f.connector,voltsPerOct:f.pitch,trigger:family==='moog'?'s':'v',amplitude:family==='buchla'?10:5,impedance:direction==='input'?100000:1000,normal,...extra};}
 const out=(id,name,kind='audio',extra={})=>port(id,name,'output',kind,null,extra);
 const input=(id,name,kind='audio',normal=null,extra={})=>port(id,name,'input',kind,normal,extra);
-out('bridge.mic','MIC OUT');out('bridge.env','MIC ENV','cv');out('bridge.pitch','Keyboard CV','pitch');out('bridge.gate','Keyboard gate','gate');out('bridge.velocity','Velocity','cv');out('bridge.expression','Expression','cv');out('bridge.seq','Sequence CV','pitch');out('bridge.clock','Sequence gate','gate');out('bridge.lfoOut','LFO','cv');out('bridge.scaleOut','Scaled CV','cv');out('bridge.strig','S-Trig','gate',{trigger:'s',connector:'phone'});out('bridge.vtrig','V-Trig','gate');out('bridge.mix','Mixer out');out('bridge.noise','Noise');
+out('bridge.mic','MIC OUT');out('bridge.env','MIC ENV','cv');out('bridge.pitch','Keyboard CV','pitch');out('bridge.gate','Keyboard gate','gate');out('bridge.velocity','Velocity','cv');out('bridge.expression','Expression','cv');out('bridge.seq','Row A · pitch','pitch');out('bridge.clock','Sequence gate','gate');out('bridge.lfoOut','LFO','cv');out('bridge.scaleOut','Scaled CV','cv');out('bridge.strig','S-Trig','gate',{trigger:'s',connector:'phone'});out('bridge.vtrig','V-Trig','gate');out('bridge.mix','Mixer out');out('bridge.noise','Noise');
 input('bridge.scaleIn','Scaler input','cv','bridge.pitch');input('bridge.triggerIn','Trigger converter','gate','bridge.gate');
+out('tools.rowB','Row B','cv');out('tools.rowC','Row C','cv');out('tools.pulse','Clock pulse','gate');
+input('tools.seqClock','Sequence clock','gate');input('tools.reset','Reset sequence / dividers','gate');
+input('tools.clockIn','Divider clock','gate','tools.pulse');
+for(const d of [2,4,8])out('tools.div'+d,'Clock ÷'+d,'gate');
+input('tools.switchClock','Switch advance','gate','tools.div2');
+for(let i=1;i<=3;i++){input('tools.switch'+i,'Switch '+i,'cv',i===1?'bridge.seq':i===2?'tools.rowB':'tools.rowC');input('tools.mix'+i,'Mix '+i,'cv');}
+out('tools.switchOut','Switch out','cv');out('tools.mixOut','Mix out','cv');
+input('tools.functionGate','Function trigger','gate','bridge.clock');out('tools.function','Function','cv');out('tools.end','End of cycle','gate');
+for(const channel of ['A','B']){input('tools.vca'+channel+'In','VCA '+channel+' signal');input('tools.vca'+channel+'CV','VCA '+channel+' CV','cv','tools.function');out('tools.vca'+channel,'VCA '+channel+' out');}
+input('tools.quantizeIn','Quantizer in','pitch','bridge.seq');out('tools.quantized','Quantized CV','pitch');input('tools.slewIn','Slew in','pitch','tools.quantized');out('tools.slew','Slew out','pitch');
 for(const family of ['moog','buchla','ems','euro']){out(family+'.pitchOut','Pitch CV','pitch');out(family+'.gateOut','Gate out','gate');out(family+'.out','Audio out');input(family+'.pitch','Pitch','pitch','bridge.pitch');}
 for(const [id,name,kind]of [['oscA','Saw A','audio'],['oscB','Pulse B','audio'],['sub','Sub','audio'],['filter','VCF out','audio'],['env','Envelope','cv']])out('moog.'+id,name,kind);
 input('moog.gate','S-Trig in','gate','bridge.gate');input('moog.fmIn','Oscillator FM','cv');input('moog.audio','Filter audio','audio');input('moog.cutCV','Filter CV','cv','moog.env');input('moog.amp','VCA audio','audio','moog.filter');input('moog.ampCV','VCA CV','cv','moog.env');
@@ -65,7 +84,7 @@ for(const [i,id]of matrixDestinations.entries())if(!ports[id])input(id,matrixLab
 for(const [id,name,kind]of [['osc1','Oscillator 1','audio'],['osc2','Oscillator 2','audio'],['osc3','Oscillator 3','cv'],['filter','Filter','audio'],['env','Trapezoid','cv'],['ring','Ring','audio'],['x','Joystick X','cv'],['y','Joystick Y','cv']])out('ems.'+id,name,kind);
 out('euro.voice','Macro out');out('euro.resonated','Resonator out');out('euro.grains','Grains out');input('euro.gate','Trigger','gate','bridge.gate');input('euro.timbreIn','Timbre CV','cv');input('euro.audio','Resonator in','audio','euro.voice');input('euro.grainIn','Grain input','audio','euro.resonated');
 export const initialMatrix={'0:6':1,'1:6':.5,'4:8':1,'5:9':1,'11:10':1,'10:0':1,'10:2':1};
-export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequencer:false};}
+export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false};}
 export function validatePatch(raw){
  if(!raw||raw.version!==1||!raw.params||typeof raw.params!=='object')throw new Error('Choose a TONTO Studio patch file.');
  const p=freshPatch();
@@ -75,7 +94,7 @@ export function validatePatch(raw){
  if(raw.matrix&&typeof raw.matrix==='object'){p.matrix={};for(const [k,v]of Object.entries(raw.matrix)){const [r,c]=k.split(':').map(Number);if(Number.isInteger(r)&&r>=0&&r<16&&Number.isInteger(c)&&c>=0&&c<16&&[-1,.5,1].includes(v))p.matrix[k]=v;}}
  for(const f of Object.keys(p.grounds))if(typeof raw.grounds?.[f]==='boolean')p.grounds[f]=raw.grounds[f];
  if(Array.isArray(raw.steps)&&raw.steps.length===8&&raw.steps.every(Number.isFinite))p.steps=raw.steps.map(v=>Math.round(Math.max(-24,Math.min(24,v))));
- p.sequencer=raw.sequencer===true;return p;
+ p.sequence=validateSequence(raw.sequence||{});p.sequencer=raw.sequencer===true;return p;
 }
 const scene=(name,note,params={},routes={},extra={})=>({name,note,patch:validatePatch({...freshPatch(),params:{...defaults,...params},routes,...extra})});
 export const presets=[
@@ -89,5 +108,9 @@ export const presets=[
  scene('08 / ARP warm ensemble','The original 2600 signal path, with three detuned oscillators and spring reverb.',{'moog.level':0,'arp.level':.7,...Object.fromEntries(Object.entries(arpPresets['Warm · three oscillators'].params).map(([k,v])=>['arp.'+k,v]))},{'arp.filter2':'arp.v2saw'}),
  scene('09 / Ground & scale study','Historical mode: play the keyboard, then fit an adapter, pitch scaler, and ground bond in the cable inspector.',{'moog.level':.7},{'moog.pitch':'buchla.pitchOut','moog.gate':'bridge.strig'},{mode:'historical',grounds:{moog:true,buchla:false,arp:true,ems:true,euro:true},cables:{'moog.gate':{adapter:true}}}),
  scene('10 / Empty patch','All cabinet faders are down. Start with an oscillator output, then patch it through a filter and amplifier.',{'moog.level':0}),
+ scene('11 / Three-row sequence','Start audio. Row A plays the Moog; B moves the cutoff and C controls a separate VCA. Change rows and step modes in Sequencer & utilities.',{'moog.level':.65,'moog.tune':-12,'moog.cutoff':350,'moog.depth':3,'moog.initial':0,'tools.gainA':0,'tempo':112},{'moog.pitch':'bridge.seq','moog.gate':'bridge.clock','moog.cutCV':'tools.rowB','tools.vcaAIn':'moog.filter','tools.vcaACV':'tools.rowC','moog.amp':'tools.vcaA','moog.ampCV':'tools.function'},{sequencer:true}),
+ scene('12 / Divided cabinet duet','Start audio. The Moog plays each step; the Buchla strikes every fourth clock. Both follow Row A, with automatic pitch and trigger conversion.',{'moog.level':.5,'buchla.level':.45,'moog.cutoff':500,'buchla.fm':.4,'buchla.fold':1.4,'buchla.decay':.55,'tempo':102},{'moog.pitch':'bridge.seq','moog.gate':'bridge.clock','buchla.pitch':'bridge.seq','buchla.gate':'tools.div4'},{sequencer:true,sequence:{...sequenceDefaults(),modes:['play','rest','play','play','play','rest','play','rest']}}),
+ scene('13 / Switched voltage melody','Start audio. The three-way switch chooses pitch voltages from A, B and C. The quantizer keeps them in C minor; slew adds portamento.',{'moog.level':.6,'moog.tune':-12,'tools.scale':2,'tools.slewRise':.08,'tools.slewFall':.12,'tempo':84},{'tools.quantizeIn':'tools.switchOut','moog.pitch':'tools.slew','moog.gate':'bridge.clock'},{sequencer:true,sequence:{...sequenceDefaults(),rowB:[.2,.4,.6,.8,1,.8,.6,.4],rowC:[1,.8,.5,.2,1.2,.5,.4,0],direction:'pendulum'}}),
+ scene('14 / Mixed oscillators, separate envelope','Play the keyboard. The DC mixer combines Moog saw, ARP pulse and Buchla complex wave. The extra rise/fall function controls a VCA before the filter.',{'moog.level':.6,'moog.initial':1,'tools.mix1':.45,'tools.mix2':.3,'tools.mix3':.2,'tools.fall':.8,'buchla.fm':.2,'buchla.fold':1.1},{'tools.mix1':'moog.oscA','tools.mix2':'arp.v2pulse','tools.mix3':'buchla.complex','tools.vcaAIn':'tools.mixOut','tools.functionGate':'bridge.gate','moog.audio':'tools.vcaA'}),
 ];
 export {arpDefaults,arpPresets};

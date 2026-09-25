@@ -31,4 +31,8 @@ External Moog filter audio now replaces its normal mixer completely; the old hid
 
 Porting Plaits/Clouds/Rings requires pinned source revisions, copyright/license notices, a reproducible WASM toolchain and reference-output regression tests. Circuit-level Moog/Buchla/EMS claims require selected hardware revisions, measured responses, tuning/aliasing/feedback tests and comparison against those measurements. Those are future fidelity work, not implemented capabilities of this release.
 
-Existing browser features are independent of that work: all five cabinets generate/process audio; all 68 inputs are patchable; MIDI/microphone/tape, both routing modes, historical converter controls, the matrix, sequencer and persistent patches are functional.
+Existing browser features are independent of that work: all five cabinets generate/process audio; all 85 inputs are patchable; MIDI/microphone/tape, both routing modes, historical converter controls, the matrix, sequencer and persistent patches are functional.
+
+## Sequencer and utility cabinet
+
+The shared controller now has three voltage rows and configurable timing and gates. `sequencer.js` handles sample-clocked transport; `utilities.js` handles the DC mixer, dual VCA, function, quantizer, slew, divider and switch. These modules run on the existing AudioWorklet and participate in cabinet dependency activation. Existing patch IDs and version-1 files remain compatible. See [behavior, normal connections and sources](sequencing-and-utilities.md).
