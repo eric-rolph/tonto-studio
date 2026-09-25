@@ -2,8 +2,8 @@ import {download} from './tape.js';
 export function setupTape({engine,tape,status,safe,power}) {
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 function time(t){return `${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).toString().padStart(2,'0')}.${Math.floor(t%1*100).toString().padStart(2,'0')}`;}
-$('#record').onclick=safe(async()=>{if(tape.recording){tape.stopRecord();return;}await power();await tape.record();status('Recording synth and dry microphone. Stop to keep this take.');});
-$('#tape-stop').onclick=()=>{tape.stopRecord();tape.stop();};$('#tape-play').onclick=safe(async()=>{await power();await tape.play();status('Tape playback started. Play or record another pass over it.');});
+$('#record').onclick=safe(async()=>{if(tape.recording){tape.stopRecord();return;}const request=tape.recordRequest;await power();if(request!==tape.recordRequest)return;if(await tape.record())status('Recording synth and dry microphone. Stop to keep this take.');});
+$('#tape-stop').onclick=()=>{tape.stopRecord();tape.stop();};$('#tape-play').onclick=safe(async()=>{const request=tape.playRequest;await power();if(request!==tape.playRequest)return;if(await tape.play()!==false)status('Tape playback started. Play or record another pass over it.');});
 function tapeChange(){tape.updatePlayback();}
 function setSpeed(speed){tape.speed=speed;$('#tape-speed').value=Math.log2(speed);$('#speed-readout').textContent=`${speed.toFixed(2)}× · ${(12*Math.log2(speed)>=0?'+':'')+(12*Math.log2(speed)).toFixed(1)} st`;$$('[data-speed]').forEach(b=>b.classList.toggle('active',Math.abs(+b.dataset.speed-speed)<.001));tapeChange();}
 $('#tape-speed').oninput=e=>{setSpeed(2**Number(e.target.value));};$$('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
