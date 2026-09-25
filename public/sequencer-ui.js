@@ -7,7 +7,7 @@ export function setupSequencer({engine,root,power,safe,status}){
  const all=s=>[...root.querySelectorAll(s)],find=s=>root.querySelector(s);
  function sync(){
   const state=engine.state,s=state.sequence;
-  find('#sequence').textContent=state.sequencer?'Stop sequence':'Start sequence';find('#sequence').classList.toggle('active',state.sequencer);
+  find('#sequence').textContent=state.sequencer?'Stop sequence':'Start sequence';find('#sequence').classList.toggle('active',state.sequencer);find('#sequence').setAttribute('aria-pressed',String(state.sequencer));
   for(const el of all('[data-sequence]')){const v=s[el.dataset.sequence];if(el.type==='checkbox')el.checked=v;else el.value=v;}
   for(const el of all('[data-step]'))el.value=state.steps[+el.dataset.step];
   for(const el of all('[data-row]'))el.value=s[el.dataset.row][+el.dataset.index];

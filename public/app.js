@@ -1,3 +1,4 @@
+import {setupInterface} from './interface.js';
 import {setupSessions} from './session.js';
 import {Engine} from './engine.js';
 import {Tape,download} from './tape.js';
@@ -76,12 +77,12 @@ $('#center-joy').onclick=()=>{engine.set('joyX',0);engine.set('joyY',0);syncJoy(
 async function power(){await engine.start();}
 $('#power').onclick=safe(async()=>{if(engine.ctx?.state==='running'){engine.panic();tape.stop();await tape.stopRecord();await engine.ctx.suspend();sync();}else await power();});
 $('#panic').onclick=()=>{engine.panic();tape.stop();sync();status('Notes, sequence and feedback cleared.');};
-engine.addEventListener('ready',()=>{const update=()=>{const on=engine.ctx.state==='running';$('#power').textContent=on?'Suspend audio':'Start audio';$('#power-lamp').classList.toggle('lit',on);$('#audio-state').textContent=on?'AUDIO RUNNING':'AUDIO SUSPENDED';$('#sample-rate').textContent=(engine.ctx.sampleRate/1000)+' kHz';};engine.ctx.onstatechange=update;update();});engine.addEventListener('error',e=>status(e.detail,true));engine.addEventListener('meter',e=>meter=e.detail);engine.addEventListener('control',sync);
-function syncMic(){const live=!!engine.micStream;$('#mic').textContent=micBusy?'Connecting…':live?'Disable mic':'Enable mic';$('#mic').disabled=micBusy;$('#mic').classList.toggle('active',live);$('#mic-note').textContent=live?'MIC OUT live · use headphones':'Microphone off';}
+engine.addEventListener('ready',()=>{const update=()=>{const on=engine.ctx.state==='running';$('#power').textContent=on?'Suspend audio':'Start audio';$('#power-lamp').classList.toggle('lit',on);$('#power').setAttribute('aria-pressed',String(on));$('#audio-state').textContent=on?'AUDIO RUNNING':'AUDIO SUSPENDED';$('#sample-rate').textContent=(engine.ctx.sampleRate/1000)+' kHz';};engine.ctx.onstatechange=update;update();});engine.addEventListener('error',e=>status(e.detail,true));engine.addEventListener('meter',e=>meter=e.detail);engine.addEventListener('control',sync);
+function syncMic(){const live=!!engine.micStream;$('#mic').textContent=micBusy?'Connecting…':live?'Disable mic':'Enable mic';$('#mic').disabled=micBusy;$('#mic').classList.toggle('active',live);$('#mic').setAttribute('aria-pressed',String(live));$('#mic-note').textContent=live?'MIC OUT live · use headphones':'Microphone off';}
 async function devices(){const select=$('#mic-device'),value=select.value;select.replaceChildren(new Option('Default input',''));for(const d of await navigator.mediaDevices.enumerateDevices())if(d.kind==='audioinput'&&d.deviceId!=='default')select.add(new Option(d.label||'Microphone',d.deviceId));select.value=value;}
 $('#mic').onclick=safe(async()=>{if(micBusy)return;if(engine.micStream){engine.stopMicrophone();syncMic();status('Microphone disconnected. Patch cables kept.');return;}micBusy=true;syncMic();try{await engine.microphone($('#mic-device').value);await devices();status('Microphone live. Patch MIC OUT to any input; use MIC ENV for loudness control.');}finally{micBusy=false;syncMic();}});
 $('#mic-device').onchange=safe(async()=>{if(engine.micStream)try{await engine.microphone($('#mic-device').value);}finally{syncMic();}});engine.addEventListener('micended',syncMic);
-$('#midi').onclick=safe(async()=>{const n=await engine.midi();status(n?`${n} MIDI input(s) connected.`:'MIDI enabled. Connect a keyboard.');$('#midi').textContent='MIDI enabled';});engine.addEventListener('midistate',e=>$('#midi-status').textContent=e.detail.join(' / ')||'MIDI ENABLED · NO DEVICE');
+$('#midi').onclick=safe(async()=>{const n=await engine.midi();status(n?`${n} MIDI input(s) connected.`:'MIDI enabled. Connect a keyboard.');$('#midi').textContent='MIDI enabled';$('#midi').setAttribute('aria-pressed','true');});engine.addEventListener('midistate',e=>$('#midi-status').textContent=e.detail.join(' / ')||'MIDI ENABLED · NO DEVICE');
 const keymap={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15,';':16},blackNotes=new Set([1,3,6,8,10]);let white=0;
 for(let n=48;n<=84;n++){const black=blackNotes.has(n%12),b=document.createElement('button');b.className='key '+(black?'black':'white');b.dataset.note=n;b.setAttribute('aria-label',['C','C sharp','D','D sharp','E','F','F sharp','G','G sharp','A','A sharp','B'][n%12]+(Math.floor(n/12)-1));b.style.left=(black?white-.3:white)*100/22+'%';b.style.width=(black?.6:1)*100/22+'%';if(!black)white++;b.textContent=Object.keys(keymap).find(k=>keymap[k]===n-60)?.toUpperCase()||(n%12===0?'C'+(Math.floor(n/12)-1):'');$('#keyboard').append(b);}
 const pointers=new Map(),held=new Set();engine.addEventListener('panic',()=>{held.clear();pointers.clear();});function keys(){const active=new Set([...engine.notes.values()].map(n=>n.note));for(const k of $$('.key'))k.classList.toggle('pressed',active.has(+k.dataset.note));}engine.addEventListener('notes',keys);
@@ -97,3 +98,5 @@ for(const id of ['help','about'])$('#'+id).onclick=()=>$('#guide').showModal();$
 window.addEventListener('beforeunload',e=>{if(tape.takes.length||tape.recording){e.preventDefault();e.returnValue='';}});
 fillPresets();load(presets[0].patch,presets[0].note);status('Choose a patch, start audio, and play a key.');
 if(['localhost','127.0.0.1'].includes(location.hostname))window.studio={engine,tape,patchBay,ports,controls};
+
+setupInterface();

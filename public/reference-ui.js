@@ -1,3 +1,4 @@
+import {setupInterface} from './interface.js';
 import {controls,ports,presets,validatePatch} from './model.js';
 import {references} from './reference-catalog.js';
 import {referenceRecipes,fitControls} from './reference-recipes.js';
@@ -125,3 +126,5 @@ function catalog(){
 }
 $('#filter').onchange=catalog;
 chooseRecipe(referenceRecipes[0].id);catalog();$('#metrics').textContent='Import a reference and render a patch to measure the differences.';say('Choose a recording or render a starting patch.');
+
+setupInterface();
