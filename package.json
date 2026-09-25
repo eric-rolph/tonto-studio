@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev --port 8790",
     "deploy": "wrangler deploy",
-    "check": "node scripts/check.mjs && node --test tests/core.test.js tests/reference.test.js tests/sequencer.test.js tests/audit.test.js tests/session.test.js tests/spectral.test.js tests/performance.test.js",
+    "check": "node scripts/check.mjs && node --test tests/core.test.js tests/reference.test.js tests/sequencer.test.js tests/audit.test.js tests/session.test.js tests/spectral.test.js tests/performance.test.js tests/library-bank.test.js tests/library.test.js",
     "test:browser": "playwright test"
   },
   "devDependencies": {

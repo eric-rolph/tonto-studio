@@ -14,7 +14,7 @@ Enable a microphone, then use **Patch microphone** or **MIC OUT** to reach any i
 
 The Sequencer & utilities cabinet has three eight-step rows, rests/skips, variable length, direction, external clock/reset, pulse divisions and a sequential switch. It also adds a signed audio/CV mixer, two VCAs, a cycling rise/fall function, pitch quantizer and slew limiter. Try patches 11–14; see [wiring, historical sources and module behavior](docs/sequencing-and-utilities.md). The EMS matrix has 16 sources and 16 destinations; pins sum at full, half or negative strength. External cables override the corresponding column. The joystick supplies two control voltages.
 
-Save stores patches locally. Export/import transfers the complete console state as JSON. Existing 2600 Studio JSON patches import into the ARP cabinet, which also includes the 21 original presets. Factory scenes describe synthesis techniques, not verified recreations of commercial recordings.
+Save stores patches locally. Export/import transfers the complete console state as JSON. Existing 2600 Studio JSON patches import into the ARP cabinet, which also includes all 64 ARP presets. Factory scenes describe synthesis techniques, not verified recreations of commercial recordings.
 
 Tape records stereo cabinet audio and a separate preamplified mono microphone stem. There are eight takes of up to three minutes, varispeed, saturation, wow/flutter, reverse, offsets, overdub layers, audio import and PCM WAV export. Tape speed and pitch move together. Recordings are in memory. **Save session** downloads a `.synthsession` file containing the patch, tape settings, and every take as exact 32-bit float audio. **Open session** restores it in this studio. Save before refreshing or closing; patch JSON alone does not include recordings.
 
@@ -22,9 +22,13 @@ The **Spectral studio** cabinet adds a 14-control fixed filter bank, simultaneou
 
 Live audio runs at a requested 48 kHz context rate; the browser handles conversion to the output device. Offline reference renders can use higher rates. See the [September audit](docs/audit.md) for verified repairs, tests, performance measurements and remaining limits.
 
+## Patch library
+
+157 entries: 80 console patches (including eight performance phrases), all 64 patches from 2600 Studio, and 13 reference studies. This adds 62 console patches and 43 ARP patches to the existing collection. The intentional Empty patch has no sound preview. Open **Browse library** to search, filter, preview, favorite, annotate and organize memories. Bank import/export transfers whole collections; 2600 banks also open in TONTO. See the [library guide and full catalog](docs/patch-library.md).
+
 ## Performance memory
 
-**Notes & motion** records up to eight bars of keyboard/MIDI notes and synth control movements. A monitor-only metronome and zero/one/two-bar count-in help capture a phrase. Playback runs on the audio thread; the note editor changes pitches, starts, lengths and velocities, and quantizes to a chosen grid. Automation lanes can be removed separately. Factory sound changes preserve the phrase. Saved patches and full session files include it; use Tape to render it to WAV or record microphone audio.
+**Notes & motion** records up to eight bars of keyboard/MIDI notes and synth control movements. A monitor-only metronome and zero/one/two-bar count-in help capture a phrase. Playback runs on the audio thread; the note editor changes pitches, starts, lengths and velocities, and quantizes to a chosen grid. Automation lanes can be removed separately. Factory sound changes preserve the phrase; Performance presets load their included notes and motion. Saved patches and full session files include it; use Tape to render it to WAV or record microphone audio.
 
 **MIDI controller mappings** learns an absolute CC for any synth parameter by device and channel. Right-click a synth control or select one in the mapping panel. Mappings stay in this browser. Sustain and panic remain reserved.
 
