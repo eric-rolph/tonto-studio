@@ -48,6 +48,6 @@ test('quantizer handles negative voltages, musical scales and root offsets',()=>
  for(let i=-36;i<=36;i++){const note=Math.round(quantize(i/12,3)*12);assert.ok([0,2,4,7,9].includes((note%12+12)%12));}
 });
 test('new presets generate bounded audio with cross-cabinet dependencies and every utility jack',()=>{
- for(const preset of presets.slice(10)){const core=new ModularCore(24000);core.configure(preset.patch);Object.assign(core.params,core.target);core.arp.params={...core.arp.target};if(!preset.patch.sequencer)core.on(55);let energy=0;for(let i=0;i<16000;i++){const output=core.tick();assert.ok(output.every(Number.isFinite));energy+=output[0]**2+output[1]**2;}assert.ok(energy>1e-3,preset.name);}
+ for(const preset of presets.slice(10)){const core=new ModularCore(24000);core.configure(preset.patch);Object.assign(core.params,core.target);core.arp.params={...core.arp.target};if(!preset.patch.sequencer)core.on(55);let energy=0;for(let i=0;i<16000;i++){const output=core.tick(preset.name.includes('Microphone')?.2*Math.sin(i*.13):0);assert.ok(output.every(Number.isFinite));energy+=output[0]**2+output[1]**2;}assert.ok(energy>1e-3,preset.name);}
  const state=freshPatch();state.sequencer=true;state.routes={'moog.pitch':'tools.slew','moog.gate':'bridge.clock','tools.seqClock':'bridge.lfoOut'};const core=new ModularCore(24000);core.configure(state);const steps=new Set();for(let i=0;i<24000;i++){core.tick();steps.add(core.step);}assert.ok(steps.size>=3);assert.ok(core.previous['tools.slew']>0);
 });

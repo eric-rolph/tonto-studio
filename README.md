@@ -18,7 +18,11 @@ The Sequencer & utilities cabinet has three eight-step rows, rests/skips, variab
 
 Save stores patches locally. Export/import transfers the complete console state as JSON. Existing 2600 Studio JSON patches import into the ARP cabinet, which also includes the 21 original presets. Factory scenes describe synthesis techniques, not verified recreations of commercial recordings.
 
-Tape records stereo cabinet audio and a separate preamplified mono microphone stem. There are eight takes of up to three minutes, varispeed, saturation, wow/flutter, reverse, offsets, overdub layers, audio import and PCM WAV export. Tape speed and pitch move together. Recordings are in memory: export them before refreshing or closing the page.
+Tape records stereo cabinet audio and a separate preamplified mono microphone stem. There are eight takes of up to three minutes, varispeed, saturation, wow/flutter, reverse, offsets, overdub layers, audio import and PCM WAV export. Tape speed and pitch move together. Recordings are in memory. **Save session** downloads a `.synthsession` file containing the patch, tape settings, and every take as exact 32-bit float audio. **Open session** restores it in this studio. Save before refreshing or closing; patch JSON alone does not include recordings.
+
+The **Spectral studio** cabinet adds a 14-control fixed filter bank, simultaneous low/band/high-pass outputs, and a 12-band vocoder. Its normal connections receive Moog audio, microphone modulation, and a Moog saw carrier. Try patches 15–18. All processing outputs remain patchable regardless of the selected monitor.
+
+Live audio runs at a requested 48 kHz context rate; the browser handles conversion to the output device. Offline reference renders can use higher rates. See the [September audit](docs/audit.md) for verified repairs, tests, performance measurements and remaining limits.
 
 ## Models and scope
 

@@ -1,8 +1,10 @@
 import {defaults as arpDefaults, sources as arpSources, destinations as arpInputs, presets as arpPresets} from './arp/model.js';
 import {sequenceDefaults,validateSequence} from './sequencer.js';
+import {bandFrequencies} from './spectral.js';
 
 export const families = {
   bridge:{name:'Master console',connector:'mini',pitch:1},
+  fx:{name:'Spectral studio',connector:'mini',pitch:1},
   tools:{name:'Sequencer & utilities',connector:'mini',pitch:1},
   moog:{name:'Moog 55',connector:'phone',pitch:1},
   buchla:{name:'Buchla 200',connector:'banana',pitch:1.2},
@@ -14,6 +16,11 @@ export const controls = {};
 function c(id,label,value,min=0,max=1,unit='',log=false){controls[id]={id,label,value,min,max,unit,log};return id;}
 const group=(title,...ids)=>({title,ids});
 export const panels = {
+ fx:[
+  group('Fixed filter bank',c('fx.lowBand','Low <88',.6,0,2,'×'),...bandFrequencies.map((hz,i)=>c('fx.band'+i,hz>=1000?(hz/1000)+' kHz':hz+' Hz',.6,0,2,'×')),c('fx.highBand','High >8k',.6,0,2,'×')),
+  group('Multimode filter',c('fx.cutoff','Cutoff',1200,20,16000,'Hz',true),c('fx.q','Resonance Q',.7071,.5,8,'×')),
+  group('Twelve-band vocoder',c('fx.sensitivity','Sensitivity',6,.2,30,'×',true),c('fx.release','Release',.08,.01,1,'s',true),c('fx.formant','Formant shift',0,-12,12,'st'),c('fx.monitor','Monitor',0,0,4,'processor')),
+ ],
  tools:[
   group('DC mixer / attenuverters',c('tools.mix1','Input 1',1,-2,2,'×'),c('tools.mix2','Input 2',1,-2,2,'×'),c('tools.mix3','Input 3',1,-2,2,'×'),c('tools.offset','Offset',0,-5,5,'V')),
   group('Dual linear VCA',c('tools.gainA','A initial',0),c('tools.gainB','B initial',0)),
@@ -51,7 +58,7 @@ for(const [key,value] of Object.entries(arpDefaults)){
  c('arp.'+key,key.replace(/([A-Z])/g,' $1').replace(/^v([123])/,'VCO $1 '),value,...limits);
 }
 panels.arp=[group('VCO 1 / 2 / 3',...['v1coarse','v1level','v2coarse','v2level','v3coarse','v3level','v2pwm'].map(k=>'arp.'+k)),group('VCF / amplifier',...['cutoff','resonance','filterEnv','ringLevel','micLevel','vcaInitial','reverb'].map(k=>'arp.'+k)),group('ADSR / preamp',...['attack','decay','sustain','release','preamp','efGain'].map(k=>'arp.'+k))];
-for(const family of ['moog','buchla','arp','ems','euro']){c(family+'.level','Level',family==='moog'?.65:0);c(family+'.pan','Pan',0,-1,1);}
+for(const family of ['moog','buchla','arp','ems','euro','fx']){c(family+'.level','Level',family==='moog'?.65:0);c(family+'.pan','Pan',0,-1,1);}
 c('master','Master',.6);c('tempo','Tempo',108,35,220,'BPM');c('swing','Swing',0,0,.45);c('expression','Expression',0);c('bend','Pitch bend',0,-2,2,'st');c('octave','Octave',0,-3,3,'st');c('joyX','X',0,-1,1);c('joyY','Y',0,-1,1);c('mains','Mains',60,50,60,'Hz');
 export const defaults=Object.fromEntries(Object.values(controls).map(p=>[p.id,p.value]));
 export const ports={};
@@ -83,8 +90,10 @@ export const matrixLabels=['Pitch 1','FM 1','Pitch 2','FM 2','Pitch 3','FM 3','F
 for(const [i,id]of matrixDestinations.entries())if(!ports[id])input(id,matrixLabels[i],/pitch/.test(id)?'pitch':/gate/.test(id)?'gate':['ems.audio','ems.amp','ems.ringA','ems.ringB','ems.springIn','ems.feedback'].includes(id)?'audio':'cv');
 for(const [id,name,kind]of [['osc1','Oscillator 1','audio'],['osc2','Oscillator 2','audio'],['osc3','Oscillator 3','cv'],['filter','Filter','audio'],['env','Trapezoid','cv'],['ring','Ring','audio'],['x','Joystick X','cv'],['y','Joystick Y','cv']])out('ems.'+id,name,kind);
 out('euro.voice','Macro out');out('euro.resonated','Resonator out');out('euro.grains','Grains out');input('euro.gate','Trigger','gate','bridge.gate');input('euro.timbreIn','Timbre CV','cv');input('euro.audio','Resonator in','audio','euro.voice');input('euro.grainIn','Grain input','audio','euro.resonated');
+input('fx.audio','Filter audio','audio','moog.out');input('fx.cutCV','Cutoff CV','cv');input('fx.modulator','Vocoder modulator','audio','bridge.mic');input('fx.carrier','Vocoder carrier','audio','moog.oscA');input('fx.formantCV','Formant CV','cv');
+for(const [id,label]of [['bank','Filter bank'],['low','Low-pass'],['band','Band-pass'],['high','High-pass'],['vocoder','Vocoder'],['out','Monitor out']])out('fx.'+id,label);
 export const initialMatrix={'0:6':1,'1:6':.5,'4:8':1,'5:9':1,'11:10':1,'10:0':1,'10:2':1};
-export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false};}
+export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,fx:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false};}
 export function validatePatch(raw){
  if(!raw||raw.version!==1||!raw.params||typeof raw.params!=='object')throw new Error('Choose a TONTO Studio patch file.');
  const p=freshPatch();
@@ -112,5 +121,10 @@ export const presets=[
  scene('12 / Divided cabinet duet','Start audio. The Moog plays each step; the Buchla strikes every fourth clock. Both follow Row A, with automatic pitch and trigger conversion.',{'moog.level':.5,'buchla.level':.45,'moog.cutoff':500,'buchla.fm':.4,'buchla.fold':1.4,'buchla.decay':.55,'tempo':102},{'moog.pitch':'bridge.seq','moog.gate':'bridge.clock','buchla.pitch':'bridge.seq','buchla.gate':'tools.div4'},{sequencer:true,sequence:{...sequenceDefaults(),modes:['play','rest','play','play','play','rest','play','rest']}}),
  scene('13 / Switched voltage melody','Start audio. The three-way switch chooses pitch voltages from A, B and C. The quantizer keeps them in C minor; slew adds portamento.',{'moog.level':.6,'moog.tune':-12,'tools.scale':2,'tools.slewRise':.08,'tools.slewFall':.12,'tempo':84},{'tools.quantizeIn':'tools.switchOut','moog.pitch':'tools.slew','moog.gate':'bridge.clock'},{sequencer:true,sequence:{...sequenceDefaults(),rowB:[.2,.4,.6,.8,1,.8,.6,.4],rowC:[1,.8,.5,.2,1.2,.5,.4,0],direction:'pendulum'}}),
  scene('14 / Mixed oscillators, separate envelope','Play the keyboard. The DC mixer combines Moog saw, ARP pulse and Buchla complex wave. The extra rise/fall function controls a VCA before the filter.',{'moog.level':.6,'moog.initial':1,'tools.mix1':.45,'tools.mix2':.3,'tools.mix3':.2,'tools.fall':.8,'buchla.fm':.2,'buchla.fold':1.1},{'tools.mix1':'moog.oscA','tools.mix2':'arp.v2pulse','tools.mix3':'buchla.complex','tools.vcaAIn':'tools.mixOut','tools.functionGate':'bridge.gate','moog.audio':'tools.vcaA'}),
+ scene('15 / Filter-bank keys','Play the keyboard. The Moog voice passes through the fixed filter bank. Raise individual bands to change its body.',{'moog.level':0,'fx.level':.65,'moog.cutoff':7000,'fx.band2':1.6,'fx.band5':1.8,'fx.band8':1.2}),
+ scene('16 / Clocked high-pass percussion','Start audio. Clock pulses trigger the ARP noise envelope; the new high-pass output removes the low end. Cutoff changes the percussion color.',{'moog.level':0,'fx.level':.65,'fx.monitor':3,'fx.cutoff':2200,'arp.v1level':0,'arp.v2level':0,'arp.noiseLevel':.8,'arp.noiseColor':0,'arp.cutoff':15000,'arp.filterKey':0,'arp.attack':.001,'arp.decay':.06,'arp.sustain':0,'arp.release':.035,'arp.reverb':0,'tempo':98},{'arp.adsrGate':'bridge.clock','fx.audio':'arp.out'},{sequencer:true}),
+ scene('17 / Microphone vocoder','Enable mic and speak. The microphone shapes twelve bands of the Moog saw carrier. Play keys to change carrier pitch; Formant shift changes the vocal color.',{'moog.level':0,'fx.level':.8,'fx.monitor':4,'moog.tune':0,'fx.sensitivity':12,'bridge.micGain':3}),
+ scene('18 / Cross-cabinet spectral rhythm','Start audio. Buchla cycles shape the spectrum of an ARP pulse carrier. No microphone is needed. Formant CV comes from sequencer row B.',{'moog.level':0,'fx.level':.65,'fx.monitor':4,'fx.sensitivity':10,'buchla.cycle':1,'buchla.fm':1.3,'arp.v2coarse':-12},{'fx.modulator':'buchla.out','fx.carrier':'arp.v2pulse','fx.formantCV':'tools.rowB'},{sequencer:true,sequence:{...sequenceDefaults(),rowB:[0,.1,.2,.3,0,-.1,-.2,.1]}}),
+
 ];
 export {arpDefaults,arpPresets};

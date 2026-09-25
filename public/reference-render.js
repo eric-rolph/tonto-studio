@@ -8,7 +8,7 @@ export function renderPatch(raw,{rate=48000,note=48,velocity=1,gate=.5,duration=
  const patch=validatePatch(raw),core=new ModularCore(rate);core.configure(patch);
  // Offline captures begin with settled controls, not a glide from factory defaults.
  Object.assign(core.params,core.target);Object.assign(core.arp.params,core.arp.target);
- const family=tap.split('.')[0];if(tap!=='mix'&&family!=='bridge'){
+ const family=tap.split('.')[0];if(tap!=='mix'&&Object.hasOwn(core.target,family+'.level')){
   core.target[family+'.level']=Math.max(.001,core.target[family+'.level']);core.updateActive();
  }
  const out=new Float32Array(Math.round(duration*rate));core.on(note,velocity);
@@ -17,7 +17,7 @@ export function renderPatch(raw,{rate=48000,note=48,velocity=1,gate=.5,duration=
 }
 
 export function fitPatch(reference,raw,options,keys,progress=()=>{},passes=3){
- const patch=validatePatch(raw),target=features(reference,options.rate),chosen=keys.filter(k=>controls[k]&&controls[k].unit!=='switch'&&controls[k].unit!=='model');
+ const patch=validatePatch(raw),target=features(reference,options.rate),chosen=keys.filter(k=>controls[k]&&!['switch','model','scale','root','processor'].includes(controls[k].unit));
  if(target.rms<1e-7)throw new Error('The reference region must contain audible signal.');
  if(!chosen.length)throw new Error('Select at least one continuous control to fit.');
  const score=()=>featureLoss(target,features(renderPatch(patch,options),options.rate));

@@ -46,7 +46,7 @@ test('browser-decoded recordings retain a source hash without claiming original 
  await page.locator('#reference-file').setInputFiles({name:'browser-capture.webm',mimeType:'audio/webm',buffer:Buffer.from(data)});await expect(page.locator('#file-info')).toContainText('source bit depth unknown');await expect(page.locator('#file-info')).toContainText('decoded rate');await page.locator('#render').click();await expect(page.locator('.metric')).toHaveCount(6);
 });
 test('five cabinets, 16x16 matrix and audio start without errors',async({page})=>{
- const errors=[];page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('.cabinet')).toHaveCount(7);await expect(page.locator('.matrix-pin')).toHaveCount(256);await page.locator('#power').click();await expect(page.locator('#audio-state')).toHaveText('AUDIO RUNNING');
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('.cabinet')).toHaveCount(8);await expect(page.locator('.matrix-pin')).toHaveCount(256);await page.locator('#power').click();await expect(page.locator('#audio-state')).toHaveText('AUDIO RUNNING');
  await page.evaluate(()=>window.studio.engine.on(60));await page.waitForTimeout(400);
  const rms=await page.evaluate(()=>{const a=new Float32Array(2048);window.studio.engine.analyser.getFloatTimeDomainData(a);return Math.sqrt(a.reduce((n,v)=>n+v*v,0)/a.length);});expect(rms).toBeGreaterThan(.001);expect(errors).toEqual([]);
 });

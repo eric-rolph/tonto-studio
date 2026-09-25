@@ -54,4 +54,4 @@ These are functional browser modules inspired by period workflows. They do not r
 
 Noise, sample-and-hold, lag, ring modulation, envelope following, spring-style reverb, tape varispeed/overdubbing and signal viewing already existed. Output fan-out already provides a multiple. This addition supplies independent cross-cabinet routing stages without removing those original modules.
 
-Further period equipment worth modeling includes fixed/formant filter banks, high-pass/band-pass stages, a Bode-style frequency shifter, an analog phaser and a vocoder. Each needs its own DSP design and reference recordings. Quadraphonic routing and deeper hardware calibration also remain outside this release.
+The Spectral studio cabinet now adds a fixed filter bank, low/band/high-pass stages and a 12-band vocoder; see the [audit and module notes](audit.md). A Bode-style frequency shifter, analog phaser, quadraphonic routing and deeper hardware calibration remain outside this release.
