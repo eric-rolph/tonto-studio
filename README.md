@@ -22,6 +22,16 @@ The **Spectral studio** cabinet adds a 14-control fixed filter bank, simultaneou
 
 Live audio runs at a requested 48 kHz context rate; the browser handles conversion to the output device. Offline reference renders can use higher rates. See the [September audit](docs/audit.md) for verified repairs, tests, performance measurements and remaining limits.
 
+## Performance memory
+
+**Notes & motion** records up to eight bars of keyboard/MIDI notes and synth control movements. A monitor-only metronome and zero/one/two-bar count-in help capture a phrase. Playback runs on the audio thread; the note editor changes pitches, starts, lengths and velocities, and quantizes to a chosen grid. Automation lanes can be removed separately. Factory sound changes preserve the phrase. Saved patches and full session files include it; use Tape to render it to WAV or record microphone audio.
+
+**MIDI controller mappings** learns an absolute CC for any synth parameter by device and channel. Right-click a synth control or select one in the mapping panel. Mappings stay in this browser. Sustain and panic remain reserved.
+
+**Undo / Redo** restores patch edits, including performance data, with forty history entries and grouped control movements. Ctrl/Command Z and Ctrl/Command Shift Z are available outside text fields. Tape takes are separate.
+
+See the [browser studio comparison and implementation limits](docs/browser-studio-comparison.md).
+
 ## Models and scope
 
 This implements a playable browser version of the supplied specification. It does **not** claim circuit-level or measured hardware accuracy. See [implementation notes](docs/implementation.md) for the exact mapping and remaining research work.

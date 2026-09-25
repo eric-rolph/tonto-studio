@@ -1,5 +1,6 @@
 import {defaults as arpDefaults, sources as arpSources, destinations as arpInputs, presets as arpPresets} from './arp/model.js';
 import {sequenceDefaults,validateSequence} from './sequencer.js';
+import {performanceDefaults,validatePerformance} from './performance-model.js';
 import {bandFrequencies} from './spectral.js';
 
 export const families = {
@@ -93,7 +94,7 @@ out('euro.voice','Macro out');out('euro.resonated','Resonator out');out('euro.gr
 input('fx.audio','Filter audio','audio','moog.out');input('fx.cutCV','Cutoff CV','cv');input('fx.modulator','Vocoder modulator','audio','bridge.mic');input('fx.carrier','Vocoder carrier','audio','moog.oscA');input('fx.formantCV','Formant CV','cv');
 for(const [id,label]of [['bank','Filter bank'],['low','Low-pass'],['band','Band-pass'],['high','High-pass'],['vocoder','Vocoder'],['out','Monitor out']])out('fx.'+id,label);
 export const initialMatrix={'0:6':1,'1:6':.5,'4:8':1,'5:9':1,'11:10':1,'10:0':1,'10:2':1};
-export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,fx:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false};}
+export function freshPatch(){return {version:1,params:{...defaults},routes:{},cables:{},matrix:{...initialMatrix},mode:'modern',grounds:{bridge:true,tools:true,fx:true,moog:true,buchla:true,arp:true,ems:true,euro:true},steps:[0,7,12,3,10,7,14,5],sequence:sequenceDefaults(),sequencer:false,performance:performanceDefaults()};}
 export function validatePatch(raw){
  if(!raw||raw.version!==1||!raw.params||typeof raw.params!=='object')throw new Error('Choose a TONTO Studio patch file.');
  const p=freshPatch();
@@ -103,7 +104,7 @@ export function validatePatch(raw){
  if(raw.matrix&&typeof raw.matrix==='object'){p.matrix={};for(const [k,v]of Object.entries(raw.matrix)){const [r,c]=k.split(':').map(Number);if(Number.isInteger(r)&&r>=0&&r<16&&Number.isInteger(c)&&c>=0&&c<16&&[-1,.5,1].includes(v))p.matrix[k]=v;}}
  for(const f of Object.keys(p.grounds))if(typeof raw.grounds?.[f]==='boolean')p.grounds[f]=raw.grounds[f];
  if(Array.isArray(raw.steps)&&raw.steps.length===8&&raw.steps.every(Number.isFinite))p.steps=raw.steps.map(v=>Math.round(Math.max(-24,Math.min(24,v))));
- p.sequence=validateSequence(raw.sequence||{});p.sequencer=raw.sequencer===true;return p;
+ p.sequence=validateSequence(raw.sequence||{});p.sequencer=raw.sequencer===true;p.performance=validatePerformance(raw.performance,controls);return p;
 }
 const scene=(name,note,params={},routes={},extra={})=>({name,note,patch:validatePatch({...freshPatch(),params:{...defaults,...params},routes,...extra})});
 export const presets=[

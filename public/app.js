@@ -1,3 +1,5 @@
+import {setupPerformance} from './performance-ui.js';
+import {setupHistory} from './history.js';
 import {setupInterface} from './interface.js';
 import {setupSessions} from './session.js';
 import {Engine} from './engine.js';
@@ -59,14 +61,14 @@ function renderRoutes(){const root=$('#route-list');root.replaceChildren();$('#c
  }if(!root.children.length){const p=document.createElement('p');p.textContent='No patch cables. Cabinet normal connections are active.';root.append(p);}}
 function fillPresets(){const select=$('#preset');select.replaceChildren();const factory=document.createElement('optgroup');factory.label='Studio patches';for(const p of presets)factory.append(new Option(p.name,p.name));select.append(factory);const studies=document.createElement('optgroup');studies.label='Reference studies · starting patches';for(const r of referenceRecipes)studies.append(new Option(r.name,'reference:'+r.id));select.append(studies);if(Object.keys(users).length){const group=document.createElement('optgroup');group.label='Saved in this browser';for(const name of Object.keys(users))group.append(new Option(name,'user:'+name));select.append(group);}}
 try{const data=JSON.parse(localStorage.getItem('tonto-patches')||'{}');for(const [name,p]of Object.entries(data))try{users[name]=validatePatch(p);}catch{}}catch{}
-function load(patch,note){engine.load(patch);patchBay.cancel();sync();patchBay.draw();renderRoutes();$('#preset-note').textContent=note;status('Patch loaded.');}
-$('#preset').onchange=()=>{const value=$('#preset').value,p=presets.find(p=>p.name===value),r=referenceRecipes.find(r=>'reference:'+r.id===value);load(p?.patch||r?.patch||users[value.slice(5)],p?.note||r?.description||'Saved patch.');};
+function load(patch,note,keepPerformance=false){engine.stopPerformance?.();if(keepPerformance)patch={...patch,performance:structuredClone(engine.state.performance)};engine.load(patch);patchBay.cancel();sync();patchBay.draw();renderRoutes();$('#preset-note').textContent=note;status('Patch loaded.');}
+$('#preset').onchange=()=>{const value=$('#preset').value,p=presets.find(p=>p.name===value),r=referenceRecipes.find(r=>'reference:'+r.id===value);load(p?.patch||r?.patch||users[value.slice(5)],p?.note||r?.description||'Saved patch.',!!p||!!r);};
 window.addEventListener('storage',e=>{if(e.key!=='tonto-patches')return;try{const current=$('#preset').value;users=Object.create(null);for(const [name,p]of Object.entries(JSON.parse(e.newValue||'{}')))try{users[name]=validatePatch(p);}catch{}fillPresets();$('#preset').value=current;}catch{}});
 $('#save-patch').onclick=()=>{const name=prompt('Name this patch:','My patch')?.trim();if(!name)return;users[name]=validatePatch(engine.state);try{localStorage.setItem('tonto-patches',JSON.stringify(users));fillPresets();$('#preset').value='user:'+name;$('#preset-note').textContent='Saved in this browser.';status('Patch saved.');}catch{status('Browser storage is unavailable. Export the patch to keep it.',true);}};
 $('#export-patch').onclick=()=>download(new Blob([JSON.stringify(engine.state,null,2)],{type:'application/json'}),'tonto-patch.json');
 function importArp(raw){const p=freshPatch();p.params['moog.level']=0;p.params['arp.level']=.7;for(const [k,v]of Object.entries(raw.params||{}))if(controls['arp.'+k])p.params['arp.'+k]=v;for(const [d,s]of Object.entries(raw.routes||{}))if(ports['arp.'+d]?.direction==='input'&&ports['arp.'+s]?.direction==='output')p.routes['arp.'+d]='arp.'+s;return validatePatch(p);}
-$('#import-patch').onchange=safe(async e=>{const file=e.target.files[0];if(!file)return;if(file.size>300000)throw new Error('Choose a patch file smaller than 300 KB.');const data=JSON.parse(await file.text());if(!data.params||!data.routes)throw new Error('Choose a TONTO or 2600 Studio patch JSON file.');const isArp=Object.keys(data.params).some(k=>k==='v1coarse'||k==='cutoff');load(isArp?importArp(data):validatePatch(data),isArp?'Imported from 2600 Studio.':'Imported patch.');e.target.value='';});
-$('#arp-preset').onchange=()=>{const name=$('#arp-preset').value;if(name)load(importArp(arpPresets[name]),'2600 / '+name);};
+$('#import-patch').onchange=safe(async e=>{const file=e.target.files[0];if(!file)return;if(file.size>1500000)throw new Error('Choose a patch file smaller than 1.5 MB.');const data=JSON.parse(await file.text());if(!data.params||!data.routes)throw new Error('Choose a TONTO or 2600 Studio patch JSON file.');const isArp=Object.keys(data.params).some(k=>k==='v1coarse'||k==='cutoff');load(isArp?importArp(data):validatePatch(data),isArp?'Imported from 2600 Studio.':'Imported patch.');e.target.value='';});
+$('#arp-preset').onchange=()=>{const name=$('#arp-preset').value;if(name)load(importArp(arpPresets[name]),'2600 / '+name,true);};
 const matrix=$('#matrix');matrix.append(document.createElement('span'));for(let col=0;col<16;col++){const label=document.createElement('span');label.className='matrix-col';label.textContent=matrixLabels[col];matrix.append(label);}for(let row=0;row<16;row++){const label=document.createElement('span');label.className='matrix-row';label.textContent=fullName(matrixSources[row]);matrix.append(label);for(let col=0;col<16;col++){const b=document.createElement('button');b.className='matrix-pin';b.dataset.cell=row+':'+col;b.setAttribute('aria-label',`${fullName(matrixSources[row])} to ${matrixLabels[col]}`);b.onclick=()=>{if(engine.state.matrix[b.dataset.cell])delete engine.state.matrix[b.dataset.cell];else engine.state.matrix[b.dataset.cell]=+$('#pin-strength').value;engine.configure();syncMatrix();};matrix.append(b);}}
 function syncMatrix(){for(const b of $$('.matrix-pin')){const value=engine.state.matrix[b.dataset.cell]||0;b.setAttribute('aria-pressed',String(!!value));b.dataset.strength=value;b.title=value?'Connected × '+value:'Empty pin';}}
 $('#clear-matrix').onclick=()=>{engine.state.matrix={};engine.configure();syncMatrix();status('All matrix pins removed.');};
@@ -99,4 +101,7 @@ window.addEventListener('beforeunload',e=>{if(tape.takes.length||tape.recording)
 fillPresets();load(presets[0].patch,presets[0].note);status('Choose a patch, start audio, and play a key.');
 if(['localhost','127.0.0.1'].includes(location.hostname))window.studio={engine,tape,patchBay,ports,controls};
 
+const performanceUI=setupPerformance({engine,root:$('#performance-memory'),power,safe,status,syncControls:sync,format:fmt});
+const history=setupHistory({engine,load,status});
+if(window.studio)Object.assign(window.studio,{performanceUI,history});
 setupInterface();

@@ -4,6 +4,7 @@ import {compileCable,transfer} from './bus.js';
 import {StepSequencer} from './sequencer.js';
 import {Utilities} from './utilities.js';
 import {SpectralProcessor} from './spectral.js';
+import {PerformanceClock} from './performance-model.js';
 const TAU=Math.PI*2,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 class Oscillator {
  constructor(){this.phase=0;}
@@ -112,8 +113,24 @@ export class ModularCore {
 }
 if(typeof AudioWorkletProcessor!=='undefined'){
  class Processor extends AudioWorkletProcessor{
-  constructor(){super();this.core=new ModularCore(sampleRate);this.peak=0;this.port.onmessage=({data:m})=>{if(m.type==='configure')this.core.configure(m.state);if(m.type==='sequence')this.core.sequence.command(m.action);if(m.type==='params')this.core.set(m.values);if(m.type==='on')this.core.on(m.note,m.velocity,m.retrigger,m.lower,m.upper);if(m.type==='off')this.core.off();if(m.type==='panic'){const state=this.core.state;this.core=new ModularCore(sampleRate);state.sequencer=false;this.core.configure(state);}};}
-  process(inputs,outputs){const a=outputs[0],mic=inputs[0]?.[0];for(let i=0;i<a[0].length;i++){const v=this.core.tick(mic?.[i]||0);a[0][i]=v[0];a[1][i]=v[1];outputs[1][0][i]=v[2];this.peak=Math.max(this.peak,Math.abs(v[0]),Math.abs(v[1]));}if(this.core.frame%2048===0){this.port.postMessage({peak:this.peak,mic:this.core.follow,step:this.core.step,bands:this.core.active.fx?Array.from(this.core.spectral.envelopes):[],signals:Object.fromEntries(['moog.env','buchla.function','ems.env','bridge.env'].map(k=>[k,this.core.signals[k]]))});this.peak=0;}return true;}
+  constructor(){super();this.core=new ModularCore(sampleRate);this.peak=0;
+   this.performance=new PerformanceClock(sampleRate,n=>n?this.core.on(n.note,n.velocity,n.retrigger,n.lower,n.upper):this.core.off(),(key,value)=>this.core.set({[key]:value}));
+   this.port.onmessage=({data:m})=>{
+    if(m.type==='configure'){this.core.configure(m.state);this.performance.values={};}
+    if(m.type==='sequence')this.core.sequence.command(m.action);
+    if(m.type==='params'){this.core.set(m.values);for(const key of Object.keys(m.values))delete this.performance.values[key];}
+    if(m.type==='on')this.performance.liveOn(m);
+    if(m.type==='off')this.performance.liveOff();
+    if(m.type==='performance'){
+     if(m.action==='start')this.performance.start(m.clip,m.options);
+     if(m.action==='stop'){this.performance.stop();this.core.set(m.restore||{});}
+     if(m.action==='click'&&this.performance.clip)this.performance.clip.click=m.enabled;
+    }
+    if(m.type==='panic'){this.performance.live=null;this.performance.stop();const state=this.core.state;this.core=new ModularCore(sampleRate);state.sequencer=false;this.core.configure(state);}
+   };
+  }
+  process(inputs,outputs){const a=outputs[0],mic=inputs[0]?.[0];for(let i=0;i<a[0].length;i++){const click=this.performance.tick(currentFrame+i),v=this.core.tick(mic?.[i]||0);a[0][i]=v[0];a[1][i]=v[1];outputs[1][0][i]=v[2];if(outputs[2])outputs[2][0][i]=click;this.peak=Math.max(this.peak,Math.abs(v[0]),Math.abs(v[1]));}if(this.core.frame%2048===0){this.port.postMessage({peak:this.peak,mic:this.core.follow,step:this.core.step,bands:this.core.active.fx?Array.from(this.core.spectral.envelopes):[],signals:Object.fromEntries(['moog.env','buchla.function','ems.env','bridge.env'].map(k=>[k,this.core.signals[k]])),performance:{running:this.performance.running,position:this.performance.position||0,values:this.performance.values,notes:[...this.performance.held.values()].map(n=>n.note)}});this.peak=0;}return true;}
+
  }
  registerProcessor('tonto-console',Processor);
 }
