@@ -2,6 +2,22 @@ import {test,expect} from '@playwright/test';
 import {floatWav} from '../public/reference-audio.js';
 test.beforeEach(async({page})=>{await page.goto('/');});
 
+test('live signal shows real output and mic independently, without changing audio levels',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('#scope-state')).toHaveText('AUDIO OFF');await page.locator('#power').click();await expect(page.locator('#audio-state')).toHaveText('AUDIO RUNNING');await page.evaluate(()=>window.studio.engine.on(60));
+ await expect.poll(()=>page.locator('#out-meter').evaluate(el=>el.value)).toBeGreaterThan(.01);
+ await expect.poll(()=>page.locator('#scope').evaluate(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let count=0;for(let y=0;y<c.height;y++)if(Math.abs(y-c.height/2)>4)for(let x=0;x<c.width;x++){const i=(y*c.width+x)*4;if(d[i]>210&&d[i+1]>145&&d[i+1]<195&&d[i+2]<145)count++;}return count;})).toBeGreaterThan(20);
+ await page.evaluate(()=>{const ctx=window.studio.engine.ctx,o=ctx.createOscillator(),g=ctx.createGain(),d=ctx.createMediaStreamDestination();o.frequency.value=220;g.gain.value=.2;o.connect(g).connect(d);o.start();navigator.mediaDevices.getUserMedia=async()=>d.stream;});await page.locator('#mic').click();
+ await expect.poll(()=>page.locator('#scope-mic-meter').evaluate(el=>el.value)).toBeGreaterThan(.1);
+ await page.evaluate(()=>window.studio.engine.set('master',0));await expect.poll(()=>page.locator('#out-meter').evaluate(el=>el.value)).toBeLessThan(.0001);await expect.poll(()=>page.locator('#scope-mic-meter').evaluate(el=>el.value)).toBeGreaterThan(.1);
+ await page.locator('#scope-gain').selectOption('8');await page.locator('#scope-window').selectOption('5');await expect(page.locator('#scope-state')).toContainText('5.0 ms');expect(await page.evaluate(()=>window.studio.engine.params.master)).toBe(0);
+ await page.evaluate(()=>window.studio.engine.ctx.suspend());await expect(page.locator('#scope-state')).toHaveText('AUDIO SUSPENDED');await expect.poll(()=>page.locator('#scope-mic-meter').evaluate(el=>el.value)).toBe(0);expect(errors).toEqual([]);
+});
+
+test('live signal is visible at desktop, narrow and mobile sizes and can stay docked',async({page})=>{
+ for(const width of [1600,1000,390]){await page.setViewportSize({width,height:900});await expect(page.locator('#live-signal')).toBeVisible();await expect(page.locator('#scope')).toBeVisible();const box=await page.locator('#scope').boundingBox();expect(box.height).toBeGreaterThan(100);expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);}
+ await page.locator('#dock-signal').click();await page.locator('#cab-ems').scrollIntoViewIfNeeded();await expect(page.locator('#live-signal')).toBeInViewport();await expect(page.locator('#dock-signal')).toHaveAttribute('aria-pressed','true');await page.locator('#dock-signal').click();await expect(page.locator('#live-signal')).not.toHaveClass(/docked/);
+});
+
 test('reference lab imports audio locally, renders, measures and exports reproducible files',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));const posted=[];page.on('request',r=>{if(r.method()==='POST')posted.push(r.url());});
  await page.goto('/reference.html');await expect(page.locator('.reference-card')).toHaveCount(25);

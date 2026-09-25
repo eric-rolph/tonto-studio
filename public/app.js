@@ -5,6 +5,7 @@ import {families,panels,ports,controls,defaults,presets,freshPatch,validatePatch
 import {cableIssues} from './bus.js';
 import {setupTape} from './tape-ui.js';
 import {referenceRecipes} from './reference-recipes.js';
+import {setupLiveSignal} from './live-signal.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const engine=new Engine(),tape=new Tape(engine);
 let meter={peak:0,mic:0,step:0},micBusy=false,users=Object.create(null);
@@ -87,8 +88,8 @@ window.addEventListener('keydown',safe(async e=>{if(e.target.matches('input,sele
 for(let i=0;i<8;i++){const label=document.createElement('label');label.className='seq-step';label.textContent=i+1;const n=document.createElement('input');n.type='number';n.min=-24;n.max=24;n.value=engine.state.steps[i];n.dataset.step=i;n.setAttribute('aria-label','Sequence step '+(i+1)+' semitones');n.onchange=()=>{engine.state.steps[i]=Math.round(Math.max(-24,Math.min(24,+n.value||0)));engine.configure();};label.append(n);$('#steps').append(label);}
 $('#sequence').onclick=safe(async()=>{await power();engine.state.sequencer=!engine.state.sequencer;engine.configure();sync();status(engine.state.sequencer?'Sequence running. Patch Sequence CV and Sequence gate to a cabinet.':'Sequence stopped.');});
 setupTape({engine,tape,status,safe,power});
-const scope=$('#scope'),sc=scope.getContext('2d'),data=new Float32Array(2048),micData=new Float32Array(1024);let lastFrame=0;
-function animate(now){requestAnimationFrame(animate);if(now-lastFrame<40)return;lastFrame=now;sc.clearRect(0,0,400,70);sc.strokeStyle='#81958c24';sc.beginPath();for(let x=0;x<400;x+=25){sc.moveTo(x,0);sc.lineTo(x,70);}sc.moveTo(0,35);sc.lineTo(400,35);sc.stroke();if(engine.analyser){engine.analyser.getFloatTimeDomainData(data);engine.micAnalyser.getFloatTimeDomainData(micData);for(const [d,color]of [[data,'#e7b477'],[micData,'#87bfb2']]){sc.strokeStyle=color;sc.beginPath();for(let x=0;x<400;x++){const y=35-d[Math.floor(x*d.length/400)]*30;x?sc.lineTo(x,y):sc.moveTo(x,y);}sc.stroke();}}$('#out-meter').value=meter.peak*engine.params.master;$('#mic-meter').value=meter.mic;$$('.seq-step').forEach((el,i)=>el.classList.toggle('current',engine.state.sequencer&&meter.step===i));}requestAnimationFrame(animate);
+const drawLiveSignal=setupLiveSignal(engine,$('#live-signal'));let lastFrame=0;
+function animate(now){requestAnimationFrame(animate);if(now-lastFrame<33)return;lastFrame=now;drawLiveSignal();$('#mic-meter').value=meter.mic;$$('.seq-step').forEach((el,i)=>el.classList.toggle('current',engine.state.sequencer&&meter.step===i));}requestAnimationFrame(animate);
 for(const id of ['help','about'])$('#'+id).onclick=()=>$('#guide').showModal();$('.close-dialog').onclick=()=>$('#guide').close();
 window.addEventListener('beforeunload',e=>{if(tape.takes.length||tape.recording){e.preventDefault();e.returnValue='';}});
 fillPresets();load(presets[0].patch,presets[0].note);status('Choose a patch, start audio, and play a key.');

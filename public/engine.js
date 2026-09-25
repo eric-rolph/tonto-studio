@@ -10,7 +10,7 @@ export class Engine extends EventTarget{
   this.synth=new AudioWorkletNode(ctx,'tonto-console',{numberOfInputs:1,numberOfOutputs:2,outputChannelCount:[2,1]});
   this.bus=ctx.createGain();this.master=ctx.createGain();this.master.gain.value=this.params.master;
   this.limiter=ctx.createDynamicsCompressor();this.limiter.threshold.value=-3;this.limiter.knee.value=0;this.limiter.ratio.value=20;this.limiter.attack.value=.002;this.limiter.release.value=.12;
-  this.analyser=ctx.createAnalyser();this.analyser.fftSize=2048;this.micAnalyser=ctx.createAnalyser();this.micAnalyser.fftSize=1024;
+  this.analyser=ctx.createAnalyser();this.analyser.fftSize=2048;this.micAnalyser=ctx.createAnalyser();this.micAnalyser.fftSize=2048;
   this.synth.connect(this.bus,0);this.synth.connect(this.micAnalyser,1);this.bus.connect(this.master).connect(this.limiter).connect(this.analyser).connect(ctx.destination);
   this.synth.port.onmessage=({data})=>this.dispatchEvent(new CustomEvent('meter',{detail:data}));
   this.synth.onprocessorerror=()=>this.dispatchEvent(new CustomEvent('error',{detail:'The audio processor stopped. Export your recordings, then reload to restart it.'}));
