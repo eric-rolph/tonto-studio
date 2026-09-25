@@ -72,7 +72,7 @@ export class ModularCore {
    this.oscs[0].tick(mhz,rate*2,p['moog.pw']);this.oscs[1].tick(mhz*2**(p['moog.detune']/1200),rate*2,p['moog.pw']);this.oscs[2].tick(mhz*.5,rate*2);
    s['moog.oscA']=this.oscs[0].saw;s['moog.oscB']=this.oscs[1].pulse;s['moog.sub']=this.oscs[2].sine;
    const blend=this.oscs[0].saw*(1-p['moog.wave'])+this.oscs[0].pulse*p['moog.wave'];
-   const signal=this.state.routes['moog.audio']?this.input('moog.audio')*.65+blend*.35:blend*.55+this.oscs[1].saw*.3+this.oscs[2].sine*.15;
+   const signal=this.state.routes['moog.audio']?this.input('moog.audio'):blend*p['moog.mixA']+this.oscs[1].saw*p['moog.mixB']+this.oscs[2].sine*p['moog.mixSub'];
    mf+=this.moogFilter.tick(signal,p['moog.cutoff']*2**clamp(this.input('moog.cutCV')*.1*p['moog.depth']+p.expression*3,-8,8),p['moog.res'],rate*2,p['moog.drive'])*.5;
   }
   s['moog.filter']=mf;s['moog.out']=Math.tanh(this.input('moog.amp')*clamp(p['moog.initial']+this.input('moog.ampCV')*.1,0,1.5)*1.4)*this.velocity;}

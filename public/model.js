@@ -14,7 +14,7 @@ const group=(title,...ids)=>({title,ids});
 export const panels = {
  moog:[
   group('921 · oscillator bank',c('moog.tune','Tune',-12,-36,36,'st'),c('moog.detune','Beat',4,-30,30,'ct'),c('moog.wave','Saw / pulse',0),c('moog.pw','Pulse width',.5,.05,.95),c('moog.fm','FM amount',.05,0,3,'V')),
-  group('904A · ladder',c('moog.cutoff','Cutoff',650,30,14000,'Hz',true),c('moog.res','Resonance',.35,0,.97),c('moog.drive','Drive',.25),c('moog.depth','Env amount',3,-4,6,'V')),
+  group('Mixer / 904A · ladder',c('moog.mixA','Osc A',.55),c('moog.mixB','Osc B',.3),c('moog.mixSub','Sub',.15),c('moog.cutoff','Cutoff',650,30,14000,'Hz',true),c('moog.res','Resonance',.35,0,.97),c('moog.drive','Drive',.25),c('moog.depth','Env amount',3,-4,6,'V')),
   group('911 · envelope / VCA',c('moog.attack','Attack',.015,.001,4,'s',true),c('moog.decay','Decay',.3,.01,4,'s',true),c('moog.sustain','Sustain',.4),c('moog.release','Release',.2,.01,6,'s',true),c('moog.initial','Initial gain',0)),
  ],
  buchla:[
@@ -79,7 +79,7 @@ export function validatePatch(raw){
 }
 const scene=(name,note,params={},routes={},extra={})=>({name,note,patch:validatePatch({...freshPatch(),params:{...defaults,...params},routes,...extra})});
 export const presets=[
- scene('01 / Living bass','Play the keyboard. The Moog and ARP oscillator signals meet at the ladder filter. Expression opens the filter.',{'arp.v2coarse':-12,'moog.cutoff':240,'moog.depth':3.8,'moog.attack':.025,'moog.decay':.35,'moog.sustain':.2},{'moog.audio':'arp.v2pulse'}),
+ scene('01 / Living bass','Play the keyboard. The ARP pulse oscillator feeds the Moog ladder filter. Expression opens the filter.',{'arp.v2coarse':-12,'moog.cutoff':240,'moog.depth':3.8,'moog.attack':.025,'moog.decay':.35,'moog.sustain':.2},{'moog.audio':'arp.v2pulse'}),
  scene('02 / West coast cycles','A cycling function strikes the low-pass gate. Change the fold amount and modulation ratio.',{'moog.level':0,'buchla.level':.7,'buchla.cycle':1,'buchla.fm':1.4,'buchla.fold':2.3}),
  scene('03 / Matrix runner','Start the sequence. Move the joystick to sweep the diode filter. The pins show the signal path.',{'moog.level':0,'ems.level':.7,'ems.cutoff':900,'ems.res':.65,'tempo':142},{},{sequencer:true,matrix:{...initialMatrix,'8:7':.5}}),
  scene('04 / Voice & circuit','Enable your microphone. Your voice drives the ARP ring modulator and envelope follower.',{'moog.level':0,'arp.level':.7,...Object.fromEntries(Object.entries(arpPresets['Droid · voice + circuit'].params).map(([k,v])=>['arp.'+k,v]))},Object.fromEntries(Object.entries(arpPresets['Droid · voice + circuit'].routes).map(([k,v])=>['arp.'+k,'arp.'+v]))),

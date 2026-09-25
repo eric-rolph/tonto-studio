@@ -1,0 +1,29 @@
+import {freshPatch,validatePatch} from './model.js';
+function recipe(id,name,family,description,params={},routes={},extra={}){
+ const base=freshPatch();base.params['moog.level']=0;
+ return {id,name,family,description,note:48,gate:.5,duration:2,patch:validatePatch({...base,...extra,params:{...base.params,...params},routes})};
+}
+// Starting points for comparison, not transcriptions of undocumented record patches.
+export const referenceRecipes=[
+ {...recipe('easel-measured','Buchla / Easel percussion study','buchla','Measured study of Cosmic Clay 2 from the free Music Easel pack. Play A4 (MIDI 69), gate 0.10 s. Fitted to one recording; not a recovered hardware patch or a Buchla 200 calibration.',{'buchla.level':.7,'buchla.tune':0,'buchla.ratio':.47,'buchla.fm':.24,'buchla.fold':1,'buchla.symmetry':-.14,'buchla.attack':.001173660328705617,'buchla.decay':.15763557587873983,'buchla.color':.34,'buchla.vactrol':.5038368390834715}),note:69,gate:.1,duration:2.2291156462585033},
+ recipe('moog-saw','Moog / isolated saw','moog','One saw oscillator → ladder → VCA. No detune, sub oscillator, resonance or envelope sweep.',{'moog.level':.7,'moog.tune':0,'moog.mixA':1,'moog.mixB':0,'moog.mixSub':0,'moog.detune':0,'moog.cutoff':10000,'moog.res':0,'moog.drive':0,'moog.depth':0,'moog.attack':.001,'moog.sustain':1,'moog.release':.05}),
+ recipe('moog-bass','Moog / envelope bass','moog','Saw oscillator → ladder; one ADSR opens both filter and VCA. Adjust cutoff before drive.',{'moog.level':.7,'moog.mixA':.8,'moog.mixB':.2,'moog.mixSub':0,'moog.cutoff':180,'moog.res':.25,'moog.depth':4,'moog.attack':.002,'moog.decay':.3,'moog.sustain':.15,'moog.release':.15}),
+ recipe('buchla-ping','Buchla / low-pass gate strike','buchla','Complex oscillator → low-pass gate. Short function with a longer vactrol tail; start without FM.',{'buchla.level':.7,'buchla.fm':0,'buchla.fold':1,'buchla.attack':.001,'buchla.decay':.15,'buchla.vactrol':.5}),
+ recipe('buchla-metal','Buchla / inharmonic FM','buchla','Modulator at a non-integer ratio → complex oscillator → low-pass gate. Compare sidebands and decay separately.',{'buchla.level':.7,'buchla.ratio':1.414,'buchla.fm':1.2,'buchla.fold':1.4,'buchla.attack':.002,'buchla.decay':.6,'buchla.vactrol':.4}),
+ recipe('arp-bass','ARP / two-oscillator bass','arp','Two oscillator signals → VCF → VCA, with ADSR filter sweep. A starting point for the Marinelli patch sheets; not a verified Thriller preset.',{'arp.level':.7,'arp.v1level':0,'arp.v2level':.7,'arp.v3level':.3,'arp.v2coarse':-12,'arp.v3coarse':-12,'arp.cutoff':180,'arp.resonance':.2,'arp.filterEnv':4,'arp.attack':.002,'arp.decay':.25,'arp.sustain':.15,'arp.release':.12,'arp.reverb':0}),
+ recipe('arp-noise','ARP / noise through resonant filter','arp','Noise → VCF → VCA. Sweep the cutoff to compare resonance and noise colour with the CC0 hardware recording.',{'arp.level':.7,'arp.v1level':0,'arp.v2level':0,'arp.v3level':0,'arp.noiseLevel':.6,'arp.cutoff':800,'arp.resonance':.75,'arp.filterEnv':0,'arp.vcaInitial':.8,'arp.reverb':0}),
+ recipe('ems-sequence','EMS / filter sequence','ems','Sequence CV → oscillator pitch; oscillator → filter → VCA; clock → trapezoid. This is a technique study, not the On the Run note sequence.',{'ems.level':.7,'ems.cutoff':650,'ems.res':.65,'ems.reverb':0,'ems.attack':.001,'ems.decay':.12,'tempo':142},{},{sequencer:true}),
+ recipe('euro-fm','Eurorack / dry FM voice','euro','FM macro voice with resonator and grains bypassed. The current engine is an original approximation, not Mutable Instruments firmware.',{'euro.level':.7,'euro.model':0,'euro.timbre':.5,'euro.morph':.4,'euro.resonator':0,'euro.grain':0}),
+ recipe('cross-buchla-moog','Buchla → Moog / folded lead','mixed','Buchla complex output → Moog filter audio; keyboard → Moog envelope. The external input replaces the internal mixer.',{'moog.level':.7,'moog.cutoff':1500,'moog.depth':1.5,'buchla.fm':.3,'buchla.fold':1.6},{'moog.audio':'buchla.complex'}),
+ recipe('cross-arp-lpg','ARP → Buchla / pulse percussion','mixed','ARP pulse output → Buchla low-pass gate. Buchla function controls the gate; change ARP pulse width and Buchla tail.',{'buchla.level':.7,'buchla.attack':.001,'buchla.decay':.12,'buchla.vactrol':.4,'arp.v2pw':.3},{'buchla.audio':'arp.v2pulse'}),
+ recipe('cross-three-envelopes','ARP + Buchla / three-envelope kick','mixed','ARP AR controls pitch, Buchla function controls filter, ARP ADSR controls VCA. Inspired by the documented external-envelope ARP technique; cabinet substitution and settings are ours.',{'arp.level':.7,'arp.v1level':0,'arp.v2level':.8,'arp.v3level':0,'arp.v2coarse':-24,'arp.v2fm':.06,'arp.arAttack':.001,'arp.arRelease':.1,'arp.attack':.001,'arp.decay':.3,'arp.sustain':0,'arp.release':.3,'arp.cutoff':120,'arp.filterEnv':3,'arp.reverb':0,'buchla.attack':.001,'buchla.decay':.12},{'arp.filter2':'arp.v2sine','arp.v2fm':'arp.ar','arp.filterEnv':'buchla.function'}),
+ recipe('cross-ring','ARP × Buchla / ring modulation','mixed','ARP sine × Buchla modulator → ARP ring input → filter → VCA. Tune both carriers and compare the sum/difference frequencies.',{'arp.level':.7,'arp.v1level':0,'arp.v2level':0,'arp.v3level':0,'arp.ringLevel':.8,'arp.cutoff':6000,'arp.filterEnv':0,'arp.reverb':0,'buchla.ratio':1.414},{'arp.ringA':'arp.v2sine','arp.ringB':'buchla.mod'}),
+];
+export const fitControls={
+ moog:['moog.cutoff','moog.res','moog.depth','moog.decay','moog.release','moog.drive'],
+ buchla:['buchla.decay','buchla.vactrol','buchla.color','buchla.fold','buchla.fm','buchla.attack'],
+ arp:['arp.cutoff','arp.resonance','arp.filterEnv','arp.decay','arp.release','arp.drive'],
+ ems:['ems.cutoff','ems.res','ems.attack','ems.decay','ems.detune'],
+ euro:['euro.timbre','euro.morph','euro.decay','euro.damping','euro.resonator'],
+ mixed:['moog.cutoff','moog.depth','moog.decay','buchla.fold','buchla.fm','buchla.decay','arp.cutoff','arp.decay'],
+};

@@ -57,3 +57,8 @@ The runner is a hidden user process, not an installed Windows service. After a r
 DSP tests cover voltage conversion direction, both trigger polarities, open adapters, grounding, microphone fan-out, finite output for factory scenes, matrix summing and overrides, feedback, patch validation and WAV headers. Browser tests exercise live AudioWorklet output, cable gestures, microphone routing, historical conversion, matrix/joystick state, old-patch import, persistence, two-stem recording/export, and responsive layout.
 
 No affiliation with Moog, Buchla, ARP, EMS, Mutable Instruments, Malcolm Cecil or the artists whose techniques informed the source specification.
+# Reference recordings
+
+Open **Reference lab** from the rack navigation to compare a local hardware recording with a TONTO patch. The lab includes 25 source entries, 13 patch studies, local audio import, waveform/spectrum/envelope comparison, selected-control fitting, and 32-bit float render export. Splice files stay local. See [research, sources and measured results](docs/reference-research.md).
+
+The first measured Music Easel study improves a single percussion approximation; it does not establish hardware equivalence. An external cable to the Moog filter now replaces its normal oscillator mix, and the unpatched mixer has explicit A/B/sub levels.

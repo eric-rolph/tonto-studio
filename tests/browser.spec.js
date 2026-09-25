@@ -1,5 +1,34 @@
 import {test,expect} from '@playwright/test';
+import {floatWav} from '../public/reference-audio.js';
 test.beforeEach(async({page})=>{await page.goto('/');});
+
+test('reference lab imports audio locally, renders, measures and exports reproducible files',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));const posted=[];page.on('request',r=>{if(r.method()==='POST')posted.push(r.url());});
+ await page.goto('/reference.html');await expect(page.locator('.reference-card')).toHaveCount(25);
+ const signal=Float32Array.from({length:12000},(_,i)=>.15*Math.sin(2*Math.PI*220*i/24000)*Math.exp(-i/6000));const bytes=Buffer.from(floatWav([signal],24000));
+ await page.locator('#reference-file').setInputFiles({name:'test-local.wav',mimeType:'audio/wav',buffer:bytes});await expect(page.locator('#file-info')).toContainText('32-bit float');await expect(page.locator('#file-info')).toContainText('24 kHz original rate');
+ await page.locator('#note').fill('57');await page.locator('#render').click();await expect(page.locator('.metric')).toHaveCount(6,{timeout:30000});await expect(page.locator('#play-b')).toBeEnabled();await page.locator('#play-b').click();await expect(page.locator('#status')).toContainText('Playing B');await page.locator('#stop').click();
+ const [audio]=await Promise.all([page.waitForEvent('download'),page.locator('#export-audio').click()]);expect(audio.suggestedFilename()).toBe('tonto-reference-candidate.wav');
+ const [report]=await Promise.all([page.waitForEvent('download'),page.locator('#export-report').click()]);expect(report.suggestedFilename()).toBe('tonto-reference-report.json');
+ await page.locator('#save-studio').click();expect(await page.evaluate(()=>Object.keys(JSON.parse(localStorage.getItem('tonto-patches'))).some(k=>k.startsWith('Reference /')))).toBe(true);
+ await page.locator('#note').fill('58');await page.locator('#note').blur();await expect(page.locator('#export-report')).toBeDisabled();expect(posted).toEqual([]);expect(errors).toEqual([]);
+});
+
+test('reference fit changes only selected controls and can be cancelled',async({page})=>{
+ await page.goto('/reference.html');await page.locator('#recipe').selectOption('buchla-ping');const signal=Float32Array.from({length:6000},(_,i)=>.1*Math.sin(2*Math.PI*260*i/12000)*Math.exp(-i/1800));await page.locator('#reference-file').setInputFiles({name:'fit.wav',mimeType:'audio/wav',buffer:Buffer.from(floatWav([signal],12000))});await expect(page.locator('#fit')).toBeEnabled();await page.locator('#fit').click();await expect(page.locator('#fit-result')).toContainText('Fit objective:',{timeout:45000});await expect(page.locator('.metric')).toHaveCount(6);await page.locator('#fit').click();await page.locator('#cancel').click();await expect(page.locator('#status')).toContainText('Cancelled');await expect(page.locator('#render')).toBeEnabled();
+});
+
+test('reference catalog filters and cross-cabinet starting patches load in studio',async({page})=>{
+ await page.locator('#preset').selectOption('reference:cross-arp-lpg');expect(await page.evaluate(()=>window.studio.engine.routes['buchla.audio'])).toBe('arp.v2pulse');await expect(page.locator('a[href="/reference.html"]')).toHaveAttribute('target','_blank');
+ await page.goto('/reference.html');await page.locator('#filter').selectOption('ems');await expect(page.locator('.reference-card')).toHaveCount(3);await page.locator('.reference-card').first().getByRole('button',{name:'Use starting patch'}).click();await expect(page.locator('#recipe')).toHaveValue('ems-sequence');
+ await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('browser-decoded recordings retain a source hash without claiming original resolution',async({page})=>{
+ await page.goto('/reference.html');
+ const data=await page.evaluate(async()=>{const ctx=new AudioContext(),osc=ctx.createOscillator(),dest=ctx.createMediaStreamDestination();osc.connect(dest);osc.start();const recorder=new MediaRecorder(dest.stream),chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);recorder.start();await new Promise(r=>setTimeout(r,180));await new Promise(r=>{recorder.onstop=r;recorder.stop();});osc.stop();await ctx.close();return [...new Uint8Array(await new Blob(chunks).arrayBuffer())];});
+ await page.locator('#reference-file').setInputFiles({name:'browser-capture.webm',mimeType:'audio/webm',buffer:Buffer.from(data)});await expect(page.locator('#file-info')).toContainText('source bit depth unknown');await expect(page.locator('#file-info')).toContainText('decoded rate');await page.locator('#render').click();await expect(page.locator('.metric')).toHaveCount(6);
+});
 test('five cabinets, 16x16 matrix and audio start without errors',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('.cabinet')).toHaveCount(6);await expect(page.locator('.matrix-pin')).toHaveCount(256);await page.locator('#power').click();await expect(page.locator('#audio-state')).toHaveText('AUDIO RUNNING');
  await page.evaluate(()=>window.studio.engine.on(60));await page.waitForTimeout(400);
